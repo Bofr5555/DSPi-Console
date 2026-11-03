@@ -26,7 +26,9 @@ struct DSPiDevice: Identifiable {
     var id: String { serial }
     var displayName: String {
         let short = String(serial.suffix(8))
-        guard let hub = hub else { return "DSPi (\(short))" }
+        // A local device has no stored name unless a transport gives it one
+        // (the iOS demo device does); USB devices never do.
+        guard let hub = hub else { return remoteName ?? "DSPi (\(short))" }
         return "\(remoteName ?? "DSPi (\(short))") via \(hub.hubName)"
     }
     var isRemote: Bool { hub != nil }

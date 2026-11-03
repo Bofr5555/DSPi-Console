@@ -1,0 +1,2 @@
+# Byte-exact device captures used by the demo device (FakeTransport).
+**/Demo/Fixtures/*.bin binary
