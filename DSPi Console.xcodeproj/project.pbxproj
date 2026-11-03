@@ -17,6 +17,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1A1A0000000000000000001B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 665141BD2F0DF37B00093CAF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A1A00000000000000000001;
+			remoteInfo = "DSPi Console iOS";
+		};
 		FACEFACEFACEFACEFACE000B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 665141BD2F0DF37B00093CAF /* Project object */;
@@ -27,15 +34,130 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		1A1A00000000000000000012 /* DSPi Console iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "DSPi Console iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A1A00000000000000000002 /* DSPi Console iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DSPi Console iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		665141C52F0DF37B00093CAF /* DSPi Console.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DSPi Console.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		66626F292F1487CD009BAE8A /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		667C67482F350A0100264C32 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		FACEFACEFACEFACEFACE0002 /* DSPi ConsoleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "DSPi ConsoleTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1A1A00000000000000000009 /* Exceptions for "DSPi Console" folder in "DSPi Console iOS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				DSPi_Console.entitlements,
+				AppUpdateChecker.swift,
+				AppUpdateInstaller.swift,
+				MenuBarMode.swift,
+				USBNotificationReader.swift,
+				Link/PollScheduler.swift,
+				NetworkingSettingsView.swift,
+				Link/LinkServer.swift,
+				Link/LinkHub.swift,
+				Link/LinkService.swift,
+				Link/LinkSessionHandler.swift,
+				Link/HubTransport.swift,
+				Link/USBHubDevice.swift,
+				Link/CommandRouter.swift,
+				Link/DeviceRegistry.swift,
+				Link/HubDevice.swift,
+				Link/PairingPrompt.swift,
+				Onboarding/CoachMarkPanel.swift,
+				PeqBandHUD.swift,
+				PeqGraphRenderer.swift,
+				PeqGraphShaders.swift,
+			);
+			target = 1A1A00000000000000000001 /* DSPi Console iOS */;
+		};
+		1A1A00000000000000000019 /* Exceptions for "DSPi ConsoleTests" folder in "DSPi Console iOSTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AdatWireTests.swift,
+				AppUpdateCheckerTests.swift,
+				AppUpdateInstallerTests.swift,
+				CoachMarkPanelTests.swift,
+				CompositeTransportTests.swift,
+				ControlSurfacesWireTests.swift,
+				DSPMathTests.swift,
+				DisplayConfigDiagTests.swift,
+				FilterDocumentTests.swift,
+				FilterFileTests.swift,
+				FirmwareInstallerTests.swift,
+				FirmwarePlatformReplyTests.swift,
+				HardwareIntegrationTests.swift,
+				HardwareTestSupport.swift,
+				HubAddressTests.swift,
+				HubBrowserSelfTests.swift,
+				I2sClockPinModeWireTests.swift,
+				I2sSlaveWireTests.swift,
+				InputPairLinkTests.swift,
+				LimiterWireTests.swift,
+				LinkAuthStoreTests.swift,
+				LinkClientFake.swift,
+				LinkClientInventoryTests.swift,
+				LinkClientTests.swift,
+				LinkDiscoveryTests.swift,
+				LinkFixtureGeneratorTests.swift,
+				LinkFrameTests.swift,
+				LinkHubCoreTests.swift,
+				LinkHubIntegrationTests.swift,
+				LinkHubTests.swift,
+				LinkLockUsageTests.swift,
+				LinkMessageTests.swift,
+				LinkNotifyRelayTests.swift,
+				LinkPolicyTests.swift,
+				LinkPollSchedulerTests.swift,
+				LinkRtaArbitrationTests.swift,
+				LinkServerTests.swift,
+				LinkServiceTests.swift,
+				LinkSessionHandlerTests.swift,
+				LinkSnapshotCacheTests.swift,
+				LinkTestSupport.swift,
+				LinkWebBundleTests.swift,
+				NetworkTransportTests.swift,
+				OnboardingCoordinatorTests.swift,
+				PeqGraphEditorTests.swift,
+				PeqGraphSnapshotTests.swift,
+				PinAssignmentTests.swift,
+				PresetDocumentHardwareTests.swift,
+				PresetDocumentTests.swift,
+				PresetSnapshotTests.swift,
+				PsybassWireTests.swift,
+				README.md,
+				RtaChannelSelectionTests.swift,
+				RtaMetalBarsTests.swift,
+				RtaMetalCurvesTests.swift,
+				RtaRenderingActiveReopenTests.swift,
+				RtaRenderingTests.swift,
+				RtaSharingTests.swift,
+				RtaStaleFrameTests.swift,
+				RtaWireTests.swift,
+				SaveCoordinationTests.swift,
+				SiggenHardwareDiagTests.swift,
+				SiggenWireTests.swift,
+				SliderInteractionTests.swift,
+				SpdifInputWireTests.swift,
+				StatsViewModelThreadingTests.swift,
+				SubharmLayoutBenchmark.swift,
+				SubharmWireTests.swift,
+				TubeLayoutBenchmark.swift,
+				TubeRenderingTests.swift,
+				TubeWireTests.swift,
+				UpmixerWireTests.swift,
+				WhatsNewTests.swift,
+			);
+			target = 1A1A00000000000000000011 /* DSPi Console iOSTests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		665141C72F0DF37B00093CAF /* DSPi Console */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1A1A00000000000000000009 /* Exceptions for "DSPi Console" folder in "DSPi Console iOS" target */,
+			);
 			path = "DSPi Console";
 			sourceTree = "<group>";
 		};
@@ -51,12 +173,29 @@
 		};
 		FACEFACEFACEFACEFACE0003 /* DSPi ConsoleTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1A1A00000000000000000019 /* Exceptions for "DSPi ConsoleTests" folder in "DSPi Console iOSTests" target */,
+			);
 			path = "DSPi ConsoleTests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1A1A00000000000000000014 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1A00000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		665141C22F0DF37B00093CAF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -98,6 +237,8 @@
 			children = (
 				665141C52F0DF37B00093CAF /* DSPi Console.app */,
 				FACEFACEFACEFACEFACE0002 /* DSPi ConsoleTests.xctest */,
+				1A1A00000000000000000002 /* DSPi Console iOS.app */,
+				1A1A00000000000000000012 /* DSPi Console iOSTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -105,6 +246,51 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1A1A00000000000000000011 /* DSPi Console iOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A1A00000000000000000016 /* Build configuration list for PBXNativeTarget "DSPi Console iOSTests" */;
+			buildPhases = (
+				1A1A00000000000000000013 /* Sources */,
+				1A1A00000000000000000014 /* Frameworks */,
+				1A1A00000000000000000015 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1A1A0000000000000000001A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FACEFACEFACEFACEFACE0003 /* DSPi ConsoleTests */,
+			);
+			name = "DSPi Console iOSTests";
+			packageProductDependencies = (
+			);
+			productName = "DSPi Console iOSTests";
+			productReference = 1A1A00000000000000000012 /* DSPi Console iOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		1A1A00000000000000000001 /* DSPi Console iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A1A00000000000000000006 /* Build configuration list for PBXNativeTarget "DSPi Console iOS" */;
+			buildPhases = (
+				1A1A00000000000000000003 /* Sources */,
+				1A1A00000000000000000004 /* Frameworks */,
+				1A1A00000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				665141C72F0DF37B00093CAF /* DSPi Console */,
+			);
+			name = "DSPi Console iOS";
+			packageProductDependencies = (
+			);
+			productName = "DSPi Console iOS";
+			productReference = 1A1A00000000000000000002 /* DSPi Console iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 		665141C42F0DF37B00093CAF /* DSPi Console */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 665141D42F0DF37C00093CAF /* Build configuration list for PBXNativeTarget "DSPi Console" */;
@@ -170,6 +356,13 @@
 					665141C42F0DF37B00093CAF = {
 						CreatedOnToolsVersion = 16.0;
 					};
+					1A1A00000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					1A1A00000000000000000011 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 1A1A00000000000000000001;
+					};
 					FACEFACEFACEFACEFACE0001 = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = 665141C42F0DF37B00093CAF;
@@ -195,11 +388,27 @@
 			targets = (
 				665141C42F0DF37B00093CAF /* DSPi Console */,
 				FACEFACEFACEFACEFACE0001 /* DSPi ConsoleTests */,
+				1A1A00000000000000000001 /* DSPi Console iOS */,
+				1A1A00000000000000000011 /* DSPi Console iOSTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1A1A00000000000000000015 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1A00000000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		665141C32F0DF37B00093CAF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -218,6 +427,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1A1A00000000000000000013 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A1A00000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		665141C12F0DF37B00093CAF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -235,6 +458,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1A1A0000000000000000001A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A1A00000000000000000001 /* DSPi Console iOS */;
+			targetProxy = 1A1A0000000000000000001B /* PBXContainerItemProxy */;
+		};
 		FACEFACEFACEFACEFACE000A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 665141C42F0DF37B00093CAF /* DSPi Console */;
@@ -243,6 +471,122 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1A1A00000000000000000017 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "WeebLabs.DSPi-Console-iOSTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DSPi Console iOS.app/DSPi Console iOS";
+			};
+			name = Debug;
+		};
+		1A1A00000000000000000018 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "WeebLabs.DSPi-Console-iOSTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DSPi Console iOS.app/DSPi Console iOS";
+			};
+			name = Release;
+		};
+		1A1A00000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"DSPi Console/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "DSPi Console";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+				INFOPLIST_FILE = "DSPi Console iOS/Info.plist";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "DSPi Console discovers DSPi devices shared by DSPi Link hubs on your local network.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "1.1.6-beta5";
+				PRODUCT_BUNDLE_IDENTIFIER = "WeebLabs.DSPi-Console-iOS";
+				PRODUCT_MODULE_NAME = DSPi_Console;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1A1A00000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"DSPi Console/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "DSPi Console";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+				INFOPLIST_FILE = "DSPi Console iOS/Info.plist";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "DSPi Console discovers DSPi devices shared by DSPi Link hubs on your local network.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "1.1.6-beta5";
+				PRODUCT_BUNDLE_IDENTIFIER = "WeebLabs.DSPi-Console-iOS";
+				PRODUCT_MODULE_NAME = DSPi_Console;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		665141D22F0DF37C00093CAF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -465,6 +809,24 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1A1A00000000000000000016 /* Build configuration list for PBXNativeTarget "DSPi Console iOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1A00000000000000000017 /* Debug */,
+				1A1A00000000000000000018 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A1A00000000000000000006 /* Build configuration list for PBXNativeTarget "DSPi Console iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1A00000000000000000007 /* Debug */,
+				1A1A00000000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		665141C02F0DF37B00093CAF /* Build configuration list for PBXProject "DSPi Console" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

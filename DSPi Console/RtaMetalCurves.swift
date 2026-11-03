@@ -125,11 +125,12 @@ final class RtaMetalCurveResources {
     }
 }
 
-struct RtaMetalCurves: NSViewRepresentable {
+struct RtaMetalCurves {
     let engine: RtaEngine
     let source: RtaMetalCurveSource
     let active: Bool
 
+    #if os(macOS)
     func makeNSView(context: Context) -> RtaMetalCurveView {
         let view = RtaMetalCurveView()
         view.update(source: source, engine: engine, active: active)
@@ -139,7 +140,23 @@ struct RtaMetalCurves: NSViewRepresentable {
         view.update(source: source, engine: engine, active: active)
     }
     static func dismantleNSView(_ view: RtaMetalCurveView, coordinator: ()) { view.stop() }
+    #else
+    func makeUIView(context: Context) -> RtaMetalCurveView {
+        let view = RtaMetalCurveView()
+        view.update(source: source, engine: engine, active: active)
+        return view
+    }
+    func updateUIView(_ view: RtaMetalCurveView, context: Context) {
+        view.update(source: source, engine: engine, active: active)
+    }
+    static func dismantleUIView(_ view: RtaMetalCurveView, coordinator: ()) { view.stop() }
+    #endif
 }
+#if os(macOS)
+extension RtaMetalCurves: NSViewRepresentable {}
+#else
+extension RtaMetalCurves: UIViewRepresentable {}
+#endif
 
 /// Same lifecycle as the bar surface, including on-demand redraw with smoothing
 /// off and stopping immediately when detached, hidden, minimised or occluded.
@@ -160,15 +177,24 @@ final class RtaMetalCurveView: MTKView {
         preferredFramesPerSecond = 60
         isPaused = true
         enableSetNeedsDisplay = true
+        #if os(macOS)
         wantsLayer = true
         layer?.isOpaque = false
+        #else
+        isOpaque = false
+        layer.isOpaque = false
+        #endif
         (layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         if let resources { renderer = RtaMetalCurveRenderer(resources: resources) }
         delegate = renderer
     }
     required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    #if os(macOS)
     override var isOpaque: Bool { false }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    #else
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? { nil }
+    #endif
 
     /// A fixed panel, for tests and benchmarks.
     func update(panel: RtaMetalCurvePanel, active: Bool) {
@@ -198,6 +224,7 @@ final class RtaMetalCurveView: MTKView {
         updateVisibility()
         needsDisplay = true
     }
+    #if os(macOS)
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         removeObservers()
@@ -212,9 +239,19 @@ final class RtaMetalCurveView: MTKView {
     }
     override func viewDidHide() { super.viewDidHide(); updateVisibility() }
     override func viewDidUnhide() { super.viewDidUnhide(); updateVisibility() }
+    #else
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateVisibility()
+    }
+    #endif
     private func updateVisibility() {
+        #if os(macOS)
         let visible = requestedActive && window?.occlusionState.contains(.visible) == true
             && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+        #else
+        let visible = requestedActive && window != nil && !isHidden
+        #endif
         renderer?.active = visible
         if enableSetNeedsDisplay != !animating { enableSetNeedsDisplay = !animating }
         if isPaused != (!visible || !animating) { isPaused = !visible || !animating }

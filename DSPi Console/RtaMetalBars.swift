@@ -67,9 +67,15 @@ struct RtaMetalBarPanel {
     let showPeakHold: Bool
 
     static func rgba(_ color: Color) -> SIMD4<Float> {
+        #if os(macOS)
         let rgb = NSColor(color).usingColorSpace(.sRGB) ?? .white
         return SIMD4(Float(rgb.redComponent), Float(rgb.greenComponent),
                      Float(rgb.blueComponent), Float(rgb.alphaComponent))
+        #else
+        var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+        _ = UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return SIMD4(Float(r), Float(g), Float(b), Float(a))
+        #endif
     }
 }
 
@@ -113,11 +119,12 @@ final class RtaMetalBarResources {
     }
 }
 
-struct RtaMetalBars: NSViewRepresentable {
+struct RtaMetalBars {
     let engine: RtaEngine
     let sources: [RtaMetalBarSource]
     var active = true
 
+    #if os(macOS)
     func makeNSView(context: Context) -> RtaMetalBarView {
         let view = RtaMetalBarView()
         view.update(sources: sources, engine: engine, active: active)
@@ -131,7 +138,27 @@ struct RtaMetalBars: NSViewRepresentable {
     static func dismantleNSView(_ view: RtaMetalBarView, coordinator: ()) {
         view.stop()
     }
+    #else
+    func makeUIView(context: Context) -> RtaMetalBarView {
+        let view = RtaMetalBarView()
+        view.update(sources: sources, engine: engine, active: active)
+        return view
+    }
+
+    func updateUIView(_ view: RtaMetalBarView, context: Context) {
+        view.update(sources: sources, engine: engine, active: active)
+    }
+
+    static func dismantleUIView(_ view: RtaMetalBarView, coordinator: ()) {
+        view.stop()
+    }
+    #endif
 }
+#if os(macOS)
+extension RtaMetalBars: NSViewRepresentable {}
+#else
+extension RtaMetalBars: UIViewRepresentable {}
+#endif
 
 /// A single surface for an entire strip. Stop drawing when detached, hidden,
 /// occluded or minimised; with interpolation off, draw only on data/size changes.
@@ -152,8 +179,13 @@ final class RtaMetalBarView: MTKView {
         preferredFramesPerSecond = 60
         isPaused = true
         enableSetNeedsDisplay = true
+        #if os(macOS)
         wantsLayer = true
         layer?.isOpaque = false
+        #else
+        isOpaque = false
+        layer.isOpaque = false
+        #endif
         if let metalLayer = layer as? CAMetalLayer {
             metalLayer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         }
@@ -162,8 +194,12 @@ final class RtaMetalBarView: MTKView {
     }
 
     required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    #if os(macOS)
     override var isOpaque: Bool { false }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    #else
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? { nil }
+    #endif
 
     /// Fixed panels, for tests and benchmarks.
     func update(panels: [RtaMetalBarPanel], active: Bool) {
@@ -194,6 +230,7 @@ final class RtaMetalBarView: MTKView {
         needsDisplay = true
     }
 
+    #if os(macOS)
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         removeObservers()
@@ -209,10 +246,20 @@ final class RtaMetalBarView: MTKView {
 
     override func viewDidHide() { super.viewDidHide(); updateVisibility() }
     override func viewDidUnhide() { super.viewDidUnhide(); updateVisibility() }
+    #else
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateVisibility()
+    }
+    #endif
 
     private func updateVisibility() {
+        #if os(macOS)
         let visible = requestedActive && window?.occlusionState.contains(.visible) == true
             && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+        #else
+        let visible = requestedActive && window != nil && !isHidden
+        #endif
         renderer?.active = visible
         if enableSetNeedsDisplay != !animating { enableSetNeedsDisplay = !animating }
         let paused = !visible || !animating

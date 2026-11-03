@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Stereo Upmixer Window Controller
 
+#if os(macOS)
 /// Hosts the upmixer panel in its own window and toggles `upmixStatusPolling` so
 /// the shared poll timer fetches UpmixStatus telemetry only while the window is
 /// visible (upmixer_spec.md §6.3).
@@ -58,6 +59,20 @@ extension UpmixerWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class UpmixerWindowController: IOSToolWindowController {
+    private weak var vm: DSPViewModel?
+
+    func show(vm: DSPViewModel) {
+        self.vm = vm
+        vm.upmix.statusPolling = true
+        DispatchQueue.global(qos: .userInitiated).async { vm.fetchUpmixConfig() }
+        present(title: "Stereo Upmixer") { UpmixerView(vm: vm, upmix: vm.upmix).onboardingHint("upmixer") }
+    }
+
+    override func didHide() { vm?.upmix.statusPolling = false }
+}
+#endif
 
 // MARK: - Stereo Upmixer View
 

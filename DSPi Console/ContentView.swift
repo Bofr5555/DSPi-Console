@@ -52,6 +52,9 @@ func availableFilterTypes(vm: DSPViewModel, includeLinkwitz: Bool = true) -> [Fi
 // MARK: - Main Layout
 
 struct ContentView: View {
+    #if os(iOS)
+    fileprivate static var didApplyLaunchSelection = false
+    #endif
     @ObservedObject var vm: DSPViewModel
     @ObservedObject private var settings = AppSettings.shared
     @EnvironmentObject var matrixMixerController: MatrixMixerWindowController
@@ -165,12 +168,20 @@ struct ContentView: View {
             let status = vm.savePreset(slot: slot)
             if status != PRESET_OK {
                 DispatchQueue.main.async {
+                    #if os(macOS)
                     let alert = NSAlert()
+                    #else
+                    let alert = PlatformAlert()
+                    #endif
                     alert.messageText = "Save Failed"
                     alert.informativeText = "Failed to save preset (\(presetFailureText(status)))."
                     alert.alertStyle = .warning
                     alert.addButton(withTitle: "OK")
+                    #if os(macOS)
                     alert.runModal()
+                    #else
+                    alert.present()
+                    #endif
                 }
             }
         }
@@ -194,18 +205,32 @@ struct ContentView: View {
         let sourceSlot = vm.activePresetSlot
         guard destinationSlot != sourceSlot else { return }
 
-        enum PreOp { case save, discard, none }
-        let preOp: PreOp
         if vm.isDeviceConnected && vm.hasUnsavedChanges {
+            #if os(macOS)
             let action = PresetAlerts.showUnsavedChangesAlert(diff: vm.computeDiff())
             switch action {
-            case .save:    preOp = .save
-            case .discard: preOp = .discard
+            case .save:    copyActivePreset(from: sourceSlot, to: destinationSlot, preOp: .save)
+            case .discard: copyActivePreset(from: sourceSlot, to: destinationSlot, preOp: .discard)
             case .cancel:  return
             }
+            #else
+            PresetAlerts.showUnsavedChangesAlert(diff: vm.computeDiff()) { action in
+                switch action {
+                case .save:    copyActivePreset(from: sourceSlot, to: destinationSlot, preOp: .save)
+                case .discard: copyActivePreset(from: sourceSlot, to: destinationSlot, preOp: .discard)
+                case .cancel:  return
+                }
+            }
+            #endif
         } else {
-            preOp = .none
+            copyActivePreset(from: sourceSlot, to: destinationSlot, preOp: .none)
         }
+    }
+
+    private enum PresetCopyPreOp { case save, discard, none }
+
+    /// The copy itself, once any unsaved changes have been dealt with.
+    private func copyActivePreset(from sourceSlot: Int, to destinationSlot: Int, preOp: PresetCopyPreOp) {
 
         // Scope the whole flow to the device it started on - the deferred
         // flash saves give a device switch time to land mid-flow.
@@ -242,12 +267,20 @@ struct ContentView: View {
             guard vm.transport.generation == generation else { return }
             guard status == PRESET_OK else {
                 DispatchQueue.main.async {
+                    #if os(macOS)
                     let alert = NSAlert()
+                    #else
+                    let alert = PlatformAlert()
+                    #endif
                     alert.messageText = "Copy Failed"
                     alert.informativeText = "Failed to copy preset (\(presetFailureText(status)))."
                     alert.alertStyle = .warning
                     alert.addButton(withTitle: "OK")
+                    #if os(macOS)
                     alert.runModal()
+                    #else
+                    alert.present()
+                    #endif
                 }
                 return
             }
@@ -255,15 +288,26 @@ struct ContentView: View {
     }
 
     private func showPresetClearConfirmation(vm: DSPViewModel, slot: Int) {
+        #if os(macOS)
         let alert = NSAlert()
+        #else
+        let alert = PlatformAlert()
+        #endif
         alert.messageText = "Clear Preset?"
         alert.informativeText = "Clear \"\(presetLabel(slot))\" and restore factory defaults? This cannot be undone."
         alert.alertStyle = .critical
         alert.addButton(withTitle: "Clear")
         alert.addButton(withTitle: "Cancel")
 
+        #if os(macOS)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        clearPreset(vm: vm, slot: slot)
+        #else
+        alert.present { if $0 == 0 { clearPreset(vm: vm, slot: slot) } }
+        #endif
+    }
 
+    private func clearPreset(vm: DSPViewModel, slot: Int) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Scope the whole flow to the device it started on: the flash
             // wait is long enough for a device switch to land mid-flow, and
@@ -289,27 +333,46 @@ struct ContentView: View {
             }
             DispatchQueue.main.async {
                 if status != PRESET_OK {
+                    #if os(macOS)
                     let errAlert = NSAlert()
+                    #else
+                    let errAlert = PlatformAlert()
+                    #endif
                     errAlert.messageText = "Clear Failed"
                     errAlert.informativeText = "Failed to clear preset (error \(status))."
                     errAlert.alertStyle = .warning
                     errAlert.addButton(withTitle: "OK")
+                    #if os(macOS)
                     errAlert.runModal()
+                    #else
+                    errAlert.present()
+                    #endif
                 }
             }
         }
     }
 
     private func showPresetClearAllConfirmation(vm: DSPViewModel) {
+        #if os(macOS)
         let alert = NSAlert()
+        #else
+        let alert = PlatformAlert()
+        #endif
         alert.messageText = "Clear All Presets?"
         alert.informativeText = "This will erase all preset data and names, restoring every slot to factory defaults. This cannot be undone."
         alert.alertStyle = .critical
         alert.addButton(withTitle: "Clear All")
         alert.addButton(withTitle: "Cancel")
 
+        #if os(macOS)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        clearAllPresets(vm: vm)
+        #else
+        alert.present { if $0 == 0 { clearAllPresets(vm: vm) } }
+        #endif
+    }
 
+    private func clearAllPresets(vm: DSPViewModel) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Scope the whole flow to the device it started on (see the
             // single-slot clear above) - with up to 10 slots to drain, this
@@ -517,6 +580,7 @@ struct ContentView: View {
                             isActive: settingsWindowOpen,
                             tooltip: "Settings",
                             action: {
+                                #if os(macOS)
                                 if settingsWindowOpen, let w = NSApp.windows.first(where: {
                                     $0.identifier?.rawValue == "dspiSettings"
                                 }) {
@@ -525,6 +589,10 @@ struct ContentView: View {
                                     openWindow(id: "settings")
                                     settingsWindowOpen = true
                                 }
+                                #else
+                                // iOS: Settings is a sheet over the console.
+                                settingsWindowOpen = true
+                                #endif
                             }
                         )
 
@@ -577,21 +645,29 @@ struct ContentView: View {
 
                                         let showLoadFailed: (UInt8) -> Void = { status in
                                             vm.fetchPresetActive()
+                                            #if os(macOS)
                                             let alert = NSAlert()
+                                            #else
+                                            let alert = PlatformAlert()
+                                            #endif
                                             alert.messageText = "Load Failed"
                                             alert.informativeText = status == PRESET_ERR_CRC
                                                 ? "Preset data is corrupted."
                                                 : "Failed to load preset (error \(status))."
                                             alert.alertStyle = .warning
                                             alert.addButton(withTitle: "OK")
+                                            #if os(macOS)
                                             alert.runModal()
+                                            #else
+                                            alert.present()
+                                            #endif
                                         }
 
                                         presetSwitchInFlight = true
                                         print("[PRESET] inFlight = true")
                                         if vm.isDeviceConnected && vm.hasUnsavedChanges {
                                             let diff = vm.computeDiff()
-                                            let action = PresetAlerts.showUnsavedChangesAlert(diff: diff)
+                                            let handle: (UnsavedChangesAction) -> Void = { action in
                                             switch action {
                                             case .save:
                                                 DispatchQueue.global(qos: .userInitiated).async {
@@ -602,12 +678,20 @@ struct ContentView: View {
                                                     guard saveStatus == PRESET_OK else {
                                                         DispatchQueue.main.async {
                                                             vm.activePresetSlot = previousSlot
+                                                            #if os(macOS)
                                                             let alert = NSAlert()
+                                                            #else
+                                                            let alert = PlatformAlert()
+                                                            #endif
                                                             alert.messageText = "Save Failed"
                                                             alert.informativeText = "Failed to save preset (\(presetFailureText(saveStatus))). Preset switch aborted."
                                                             alert.alertStyle = .warning
                                                             alert.addButton(withTitle: "OK")
+                                                            #if os(macOS)
                                                             alert.runModal()
+                                                            #else
+                                                            alert.present()
+                                                            #endif
                                                             presetSwitchInFlight = false
                                                         }
                                                         return
@@ -634,6 +718,12 @@ struct ContentView: View {
                                                 presetSwitchInFlight = false
                                                 return
                                             }
+                                            }
+                                            #if os(macOS)
+                                            handle(PresetAlerts.showUnsavedChangesAlert(diff: diff))
+                                            #else
+                                            PresetAlerts.showUnsavedChangesAlert(diff: diff, completion: handle)
+                                            #endif
                                         } else {
                                             print("[PRESET] no unsaved changes, loading slot \(slot)")
                                             vm.activePresetSlot = slot
@@ -768,7 +858,11 @@ struct ContentView: View {
                     // ADDED GESTURE HERE FOR SIDEBAR CONTROLS
                     .onTapGesture {
                         if renamingChannel != nil { commitRename() }
-                        NSApp.keyWindow?.makeFirstResponder(nil)
+                        #if os(macOS)
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                #else
+                UIApplication.shared.endEditing()
+                #endif
                     }
 
                     Divider()
@@ -786,7 +880,11 @@ struct ContentView: View {
             // ADDED GESTURE FOR THE REST OF THE SIDEBAR
             .onTapGesture {
                 if renamingChannel != nil { commitRename() }
+                #if os(macOS)
                 NSApp.keyWindow?.makeFirstResponder(nil)
+                #else
+                UIApplication.shared.endEditing()
+                #endif
             }
 
             // MAIN CONTENT
@@ -922,7 +1020,11 @@ struct ContentView: View {
             .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
             .onTapGesture {
                 if renamingChannel != nil { commitRename() }
+                #if os(macOS)
                 NSApp.keyWindow?.makeFirstResponder(nil)
+                #else
+                UIApplication.shared.endEditing()
+                #endif
             }
         }
         // Across the whole window rather than inside a pane: a device on the
@@ -993,6 +1095,7 @@ struct ContentView: View {
             .padding()
             .frame(width: 280)
         }
+        #if os(macOS)
         .onAppear {
             DispatchQueue.main.async {
                 if let window = NSApp.keyWindow {
@@ -1008,6 +1111,26 @@ struct ContentView: View {
                 settingsWindowOpen = false
             }
         }
+        #else
+        .sheet(isPresented: $settingsWindowOpen) {
+            IOSSettingsSheet()
+        }
+        // `-SelectChannel in1|out3...` opens a channel page once the device is
+        // ready: a hook for Simulator screenshots and UI tests.
+        .onReceive(vm.$isDeviceReady) { ready in
+            guard ready, !ContentView.didApplyLaunchSelection,
+                  let target = UserDefaults.standard.string(forKey: "SelectChannel")?.lowercased(),
+                  let number = Int(target.drop { !$0.isNumber }), number >= 1 else { return }
+            ContentView.didApplyLaunchSelection = true
+            if target.hasPrefix("in"), number <= vm.numMatrixInputs {
+                selection = .input(number - 1)
+                vm.updateSelection(to: number - 1)
+            } else if target.hasPrefix("out"), number <= vm.numOutputChannels {
+                selection = .output(number - 1)
+                vm.updateSelectionToOutput(number - 1)
+            }
+        }
+        #endif
     }
 
 }
@@ -1017,7 +1140,11 @@ struct ContentView: View {
 extension DSPViewModel {
     /// Creates a preview-safe view model with mock data (no USB connection)
     static var preview: DSPViewModel {
+        #if os(macOS)
         let vm = DSPViewModel(transport: USBDevice())
+        #else
+        let vm = DSPViewModel(transport: FakeTransport(autoSelect: false))
+        #endif
         vm.isDeviceConnected = true
         vm.preampDB = [-3.0, -3.0]
         vm.meters.status = SystemStatus(peaks: [0.6, 0.55, 0.4, 0.35, 0.25], cpu0: 42, cpu1: 38)

@@ -576,7 +576,11 @@ struct CompactGainField: View {
                 if focused {
                     text = formatGain(gain)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        #if os(macOS)
                         NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                        #else
+                        UIApplication.shared.sendAction(#selector(UIResponder.selectAll(_:)), to: nil, from: nil, for: nil)
+                        #endif
                     }
                 } else {
                     commitValue()
@@ -641,7 +645,11 @@ struct CompactDelayField: View {
                 if focused {
                     text = String(format: "%.1f", delay)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        #if os(macOS)
                         NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                        #else
+                        UIApplication.shared.sendAction(#selector(UIResponder.selectAll(_:)), to: nil, from: nil, for: nil)
+                        #endif
                     }
                 } else {
                     commitValue()
@@ -683,6 +691,7 @@ struct CompactDelayField: View {
 
 // MARK: - Scroll Wheel Handler
 
+#if os(macOS)
 struct ScrollWheelHandler: NSViewRepresentable {
     let onScroll: (Float) -> Void
 
@@ -711,6 +720,13 @@ struct ScrollWheelHandler: NSViewRepresentable {
         }
     }
 }
+#else
+/// Scroll-wheel gain nudges have no touch equivalent; values are typed.
+struct ScrollWheelHandler: View {
+    let onScroll: (Float) -> Void
+    var body: some View { Color.clear.allowsHitTesting(false) }
+}
+#endif
 
 // MARK: - Routing Point
 

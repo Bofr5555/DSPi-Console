@@ -206,6 +206,7 @@ struct HeadphoneRow: View {
 
 // MARK: - Window Controller
 
+#if os(macOS)
 class AutoEQBrowserController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible = false
@@ -243,3 +244,10 @@ extension AutoEQBrowserController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class AutoEQBrowserController: IOSToolWindowController {
+    func show() {
+        present(title: "AutoEQ") { AutoEQBrowser().onboardingHint("autoeq") }
+    }
+}
+#endif

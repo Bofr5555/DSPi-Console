@@ -2979,6 +2979,7 @@ class DSPViewModel: ObservableObject {
         return PresetSnapshot.diff(from: saved, to: captureSnapshot(), channelNames: channelNames)
     }
 
+    #if os(macOS)
     func switchToDevice(_ device: DSPiDevice) {
         guard device != selectedDevice else { return }
 
@@ -3031,6 +3032,62 @@ class DSPViewModel: ObservableObject {
             transport.selectDevice(device)
         }
     }
+    #else
+    /// iOS: the same two confirmations as on macOS, answered asynchronously.
+    func switchToDevice(_ device: DSPiDevice) {
+        guard device != selectedDevice else { return }
+        guard isDeviceConnected && SettingsSaveCoordinator.shared.hasPendingChanges else {
+            switchToDeviceAfterSettingsCheck(device)
+            return
+        }
+        let alert = PlatformAlert()
+        alert.messageText = "Unsaved Settings Changes"
+        alert.informativeText = "Settings has pending changes for the current device that have not been saved. Switching devices will discard them."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Discard and Switch")
+        alert.addButton(withTitle: "Cancel")
+        alert.present { [weak self] response in
+            guard response == 0 else { return }
+            self?.switchToDeviceAfterSettingsCheck(device)
+        }
+    }
+
+    private func switchToDeviceAfterSettingsCheck(_ device: DSPiDevice) {
+        guard isDeviceConnected && hasUnsavedChanges else {
+            savedSnapshot = nil
+            transport.selectDevice(device)
+            return
+        }
+        PresetAlerts.showUnsavedChangesAlert(diff: computeDiff()) { [weak self] action in
+            guard let self else { return }
+            switch action {
+            case .save:
+                DispatchQueue.global(qos: .userInitiated).async {
+                    if self.presetNames[self.activePresetSlot].isEmpty {
+                        self.setPresetName(slot: self.activePresetSlot, name: "Preset \(self.activePresetSlot + 1)")
+                    }
+                    let saveStatus = self.savePreset(slot: self.activePresetSlot)
+                    guard saveStatus == PRESET_OK else {
+                        let alert = PlatformAlert()
+                        alert.messageText = "Save Failed"
+                        alert.informativeText = "Failed to save preset (\(presetFailureText(saveStatus))). Device switch aborted."
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "OK")
+                        alert.present()
+                        return
+                    }
+                    self.savedSnapshot = nil
+                    self.transport.selectDevice(device)
+                }
+            case .discard:
+                self.savedSnapshot = nil
+                self.transport.selectDevice(device)
+            case .cancel:
+                return
+            }
+        }
+    }
+    #endif
 
     // MARK: - Channel Clipboard
 

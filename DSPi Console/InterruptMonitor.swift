@@ -19,7 +19,11 @@
 
 import Foundation
 import SwiftUI
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Combine
 
 // MARK: - Wire-Level Constants (mirror firmware notify.h / usb_descriptors.h)
@@ -694,7 +698,9 @@ class InterruptMonitor: ObservableObject {
         // last failure after they have had time to run.
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self = self, self.isActive else { return }
+            #if os(macOS)
             self.errorMessage = (self.transport as? USBDevice)?.notificationReaderError
+            #endif
         }
     }
 
@@ -1023,6 +1029,7 @@ struct InterruptMonitorView: View {
 
 // MARK: - Window Controller
 
+#if os(macOS)
 class InterruptMonitorWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -1068,3 +1075,12 @@ extension InterruptMonitorWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class InterruptMonitorWindowController: IOSToolWindowController {
+    func toggle() { isVisible ? hide() : show() }
+
+    func show() {
+        present(title: "Interrupt Monitor") { InterruptMonitorView(monitor: AppState.shared.interruptMonitor) }
+    }
+}
+#endif

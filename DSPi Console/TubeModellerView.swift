@@ -2,6 +2,13 @@ import SwiftUI
 
 // MARK: - Tube Modeller Window Controller
 
+/// Height of the window's content, reported so the controller can fit to it.
+private struct TubeContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+#if os(macOS)
 class TubeModellerWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -57,17 +64,21 @@ class TubeModellerWindowController: NSObject, ObservableObject {
     }
 }
 
-/// Height of the window's content, reported so the controller can fit to it.
-private struct TubeContentHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-}
-
 extension TubeModellerWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         isVisible = false
     }
 }
+#else
+class TubeModellerWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Tube Modeller") { TubeModellerView(vm: vm, tube: vm.tube, controller: self).onboardingHint("tube") }
+    }
+
+    /// The sheet scrolls; there is no window height to fit.
+    func fit(contentHeight: CGFloat) {}
+}
+#endif
 
 // MARK: - Starting Points (spec §6)
 

@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Psychoacoustic Bass Window Controller
 
+#if os(macOS)
 class PsychoacousticBassWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -45,6 +46,13 @@ extension PsychoacousticBassWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class PsychoacousticBassWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Psychoacoustic Bass") { PsychoacousticBassView(vm: vm, psybass: vm.psybass).onboardingHint("psybass") }
+    }
+}
+#endif
 
 // MARK: - Starting Points (spec §6)
 

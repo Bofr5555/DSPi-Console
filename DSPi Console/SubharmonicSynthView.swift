@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Subharmonic Synthesizer Window Controller
 
+#if os(macOS)
 class SubharmonicSynthWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -60,6 +61,24 @@ extension SubharmonicSynthWindowController: NSWindowDelegate {
         clearSolo()
     }
 }
+#else
+class SubharmonicSynthWindowController: IOSToolWindowController {
+    /// Held so closing the sheet clears solo, as closing the window does.
+    private weak var vm: DSPViewModel?
+
+    func show(vm: DSPViewModel) {
+        self.vm = vm
+        present(title: "Subharmonic Synthesizer") {
+            SubharmonicSynthView(vm: vm, subharm: vm.subharm, controller: self).onboardingHint("subharm")
+        }
+    }
+
+    override func didHide() {
+        guard let vm, vm.subharm.solo else { return }
+        vm.setSubharmSolo(false)
+    }
+}
+#endif
 
 // MARK: - Starting Points (spec §6)
 

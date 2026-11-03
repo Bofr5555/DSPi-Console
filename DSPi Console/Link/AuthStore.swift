@@ -123,7 +123,12 @@ final class LinkAuthStore {
     }
 
     static func defaultHubName() -> String {
+        #if os(macOS)
         let machine = Host.current().localizedName ?? "Mac"
+        #else
+        // The iOS app is never a hub; this only keeps the shared store building.
+        let machine = ProcessInfo.processInfo.hostName
+        #endif
         return "\(machine) DSPi Console"
     }
 

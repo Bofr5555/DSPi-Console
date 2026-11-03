@@ -1,7 +1,9 @@
 import Foundation
+#if os(macOS)
 import IOKit
 import IOKit.usb
 import AppKit
+#endif
 
 /// Vendor ID of a board sitting in BOOTSEL.  Deliberately not `USBDevice`'s
 /// own `0x2E8B`: a board in bootloader mode is running Raspberry Pi's ROM
@@ -63,6 +65,7 @@ protocol BootloaderLocating: AnyObject {
     func stop()
 }
 
+#if os(macOS)
 /// Locates real boards by pairing two independent signals.
 ///
 /// USB tells us *which chip* with certainty; the mounted volume tells us
@@ -203,6 +206,18 @@ final class SystemBootloaderLocator: BootloaderLocating {
         return byName
     }
 }
+#else
+/// iOS cannot see a board in BOOTSEL: there is no IOKit USB registry and no
+/// mounted RPI-RP2 drive to copy a UF2 onto.  The locator reports no boards,
+/// so the firmware updater stays at "waiting for a board".  Flashing from an
+/// iPad goes through PICOBOOT in the DriverKit extension (work package A6).
+final class SystemBootloaderLocator: BootloaderLocating {
+    var onChange: (([BootloaderBoard]) -> Void)?
+    func currentBoards() -> [BootloaderBoard] { [] }
+    func start() { onChange?([]) }
+    func stop() {}
+}
+#endif
 
 /// Test and developer-override double.  Set `boards`, then call `emit()` to
 /// drive the installer through any state without hardware.

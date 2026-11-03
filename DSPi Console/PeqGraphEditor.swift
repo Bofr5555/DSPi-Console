@@ -1,5 +1,9 @@
 import SwiftUI
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Combine
 import simd
 
@@ -62,6 +66,7 @@ struct PeqGraphEditorConfig: Equatable {
     var showLevelReadout = true
 }
 
+#if os(macOS)
 struct PeqGraphEditorOverlay: NSViewRepresentable {
     let vm: DSPViewModel
     let config: PeqGraphEditorConfig
@@ -1757,3 +1762,22 @@ final class PeqMenuItem: NSMenuItem {
     required init(coder: NSCoder) { fatalError() }
     @objc private func run() { handler() }
 }
+#else
+// The on-graph band editor (and its HUD, shape chooser and Metal renderer,
+// which are excluded from the iOS target) is AppKit: mouse, cursor, scroll
+// wheel, modifier keys and NSMenu throughout.  Its touch version is work
+// package A3, built on the Android port's gesture table.  Until then the
+// editor reports itself unavailable, so GraphView draws every curve with its
+// SwiftUI path exactly as it does on a Mac without Metal, and bands are edited
+// from the list below the graph.
+struct PeqGraphEditorOverlay: View {
+    let vm: DSPViewModel
+    let config: PeqGraphEditorConfig
+
+    var body: some View { Color.clear.allowsHitTesting(false) }
+}
+
+enum PeqGraphEditorView {
+    static var isAvailable: Bool { false }
+}
+#endif

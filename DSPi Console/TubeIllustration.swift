@@ -196,7 +196,7 @@ private struct TubeGeometry {
 /// The artwork is rasterized once per family, size and display scale. Audio
 /// goes straight from the existing status stream to a Core Animation opacity:
 /// no extra USB requests, SwiftUI invalidations, or per-frame drawing.
-struct TubeIllustration: NSViewRepresentable {
+struct TubeIllustration {
     let family: TubeFamily
     let lit: Bool
     let meters: DSPMeterModel
@@ -205,6 +205,7 @@ struct TubeIllustration: NSViewRepresentable {
     let outputMask: UInt16
     let active: Bool
 
+    #if os(macOS)
     func makeNSView(context: Context) -> TubeIllustrationNSView {
         TubeIllustrationNSView(frame: .zero)
     }
@@ -218,7 +219,27 @@ struct TubeIllustration: NSViewRepresentable {
     static func dismantleNSView(_ view: TubeIllustrationNSView, coordinator: ()) {
         view.stopFollowingAudio()
     }
+    #else
+    func makeUIView(context: Context) -> TubeIllustrationNSView {
+        TubeIllustrationNSView(frame: .zero)
+    }
+
+    func updateUIView(_ view: TubeIllustrationNSView, context: Context) {
+        view.configure(family: family, lit: lit, meters: meters,
+                       outputStart: outputStart, outputCount: outputCount,
+                       outputMask: outputMask, active: active)
+    }
+
+    static func dismantleUIView(_ view: TubeIllustrationNSView, coordinator: ()) {
+        view.stopFollowingAudio()
+    }
+    #endif
 }
+#if os(macOS)
+extension TubeIllustration: NSViewRepresentable {}
+#else
+extension TubeIllustration: UIViewRepresentable {}
+#endif
 
 /// Select only routed outputs, using the platform's offset in the status
 /// packet. A square-root envelope keeps ordinary listening levels visible;
@@ -237,7 +258,13 @@ enum TubeAudioPulse {
     }
 }
 
-final class TubeIllustrationNSView: NSView {
+#if os(macOS)
+typealias TubePlatformView = NSView
+#else
+typealias TubePlatformView = UIView
+#endif
+
+final class TubeIllustrationNSView: TubePlatformView {
     private let tube = CALayer()
     private let heater = CALayer()
     private let bloom = CALayer()
@@ -260,19 +287,32 @@ final class TubeIllustrationNSView: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        #if os(macOS)
         wantsLayer = true
+        #endif
         for part in [tube, heater, bloom] {
             part.actions = ["contents": NSNull(), "bounds": NSNull(),
                             "position": NSNull(), "opacity": NSNull()]
+            #if os(macOS)
             layer?.addSublayer(part)
+            #else
+            layer.addSublayer(part)
+            #endif
         }
         heater.opacity = 0
         bloom.opacity = 0
+        #if os(macOS)
         setAccessibilityElement(false)
+        #else
+        isAccessibilityElement = false
+        isUserInteractionEnabled = false
+        #endif
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    #if os(macOS)
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    #endif
 
     func configure(family: TubeFamily, lit: Bool, meters: DSPMeterModel,
                    outputStart: Int, outputCount: Int, outputMask: UInt16, active: Bool) {
@@ -296,9 +336,19 @@ final class TubeIllustrationNSView: NSView {
         updateAudioSubscription()
     }
 
+    #if os(macOS)
     override func layout() {
         super.layout()
-        let scale = window?.backingScaleFactor ?? 2
+        layoutArtwork(scale: window?.backingScaleFactor ?? 2)
+    }
+    #else
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutArtwork(scale: window?.screen.scale ?? 2)
+    }
+    #endif
+
+    private func layoutArtwork(scale: CGFloat) {
         let key = ArtworkKey(family: family, size: bounds.size, scale: scale)
         guard bounds.width > 0, bounds.height > 0 else { return }
         if key != artworkKey {
@@ -323,6 +373,7 @@ final class TubeIllustrationNSView: NSView {
         for part in [tube, heater, bloom] { part.frame = bounds }
     }
 
+    #if os(macOS)
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         needsLayout = true
@@ -352,10 +403,26 @@ final class TubeIllustrationNSView: NSView {
         super.viewDidUnhide()
         updateAudioSubscription()
     }
+    #else
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        setNeedsLayout()
+        updateAudioSubscription()
+    }
+    #endif
+
+    /// On screen and able to show the glow.
+    private var isShowing: Bool {
+        #if os(macOS)
+        guard !isHiddenOrHasHiddenAncestor, let window else { return false }
+        return window.occlusionState.contains(.visible) && !window.isMiniaturized
+        #else
+        return !isHidden && window != nil
+        #endif
+    }
 
     private func updateAudioSubscription() {
-        guard active, lit, outputMask != 0, !isHiddenOrHasHiddenAncestor,
-              let window, window.occlusionState.contains(.visible), !window.isMiniaturized,
+        guard active, lit, outputMask != 0, isShowing,
               let meters else {
             stopFollowingAudio()
             return
@@ -380,7 +447,11 @@ final class TubeIllustrationNSView: NSView {
         guard part.opacity != opacity else { return }
         let from = part.presentation()?.opacity ?? part.opacity
         part.opacity = opacity
+        #if os(macOS)
         guard window?.occlusionState.contains(.visible) == true else { return }
+        #else
+        guard window != nil else { return }
+        #endif
         let animation = CABasicAnimation(keyPath: "opacity")
         animation.fromValue = from
         animation.toValue = opacity

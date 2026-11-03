@@ -15,6 +15,7 @@ import SwiftUI
 /// invalidated, and `sizingOptions` is empty, so nothing in here can start an
 /// Auto Layout pass or a SwiftUI re-layout outside. The outer tree updates the
 /// content only when it re-renders itself, which a drag no longer causes.
+#if os(macOS)
 struct LiveGraphHost<Content: View>: NSViewRepresentable {
     let content: Content
     /// False: the height is the content's ideal height, measured once. True:
@@ -63,6 +64,24 @@ final class LiveGraphHostView<Content: View>: NSView {
     }
     override func invalidateIntrinsicContentSize() {}
 }
+#else
+/// iOS: no separate hosting view yet; the content is laid out in place.  The
+/// layout-isolation trick above is a macOS performance measure (A3 can add a
+/// UIHostingController boundary if the tool sheets prove slow on device).
+struct LiveGraphHost<Content: View>: View {
+    let content: Content
+    var flexibleHeight = false
+
+    init(flexibleHeight: Bool = false, @ViewBuilder content: () -> Content) {
+        self.flexibleHeight = flexibleHeight
+        self.content = content()
+    }
+
+    var body: some View {
+        content.fixedSize(horizontal: false, vertical: !flexibleHeight)
+    }
+}
+#endif
 
 /// Live overrides for a graph while one of its parameters is being dragged:
 /// the dragged value by key, empty between drags. Observed only by the graph

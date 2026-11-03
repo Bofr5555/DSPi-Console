@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+#if os(macOS)
 // MARK: - Right Click Handler
 
 /// Invisible overlay that intercepts right-clicks while passing left-clicks through
@@ -82,6 +83,18 @@ struct OptionClickHandler: NSViewRepresentable {
         }
     }
 }
+#else
+extension View {
+    /// Touch has no secondary click; a long press stands in for it (the
+    /// Android port's gesture table does the same).  Simultaneous, so a tap on
+    /// the same control still reaches its button.
+    func onRightClick(perform action: @escaping () -> Void) -> some View {
+        self.simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in action() })
+    }
+    /// Option-click has no touch equivalent yet (compact layout, A3).
+    func onOptionClick(perform action: @escaping () -> Void) -> some View { self }
+}
+#endif
 
 // MARK: - Meter Components
 
@@ -92,6 +105,7 @@ struct OptionClickHandler: NSViewRepresentable {
 /// kept animating and laying the window out on every display frame.  Core
 /// Animation runs the same glide in the render server: a new level costs one
 /// layer change on the main thread.
+#if os(macOS)
 final class MeterBarNSView: NSView {
     private let bar = CALayer()
     private let clip = CALayer()
@@ -174,6 +188,79 @@ final class MeterBarNSView: NSView {
         CATransaction.commit()
     }
 }
+#else
+/// The same layer-backed meter bar on UIKit.  Same layers, same 60 ms glide;
+/// only the view plumbing (layout, trait changes) differs.
+final class MeterBarNSView: UIView {
+    private let bar = CALayer()
+    private let clip = CALayer()
+    private var level: CGFloat = 0
+    private var clipping = false
+    private static let clipZoneWidth: CGFloat = 3
+
+    var color: UIColor = .tintColor {
+        didSet { if color != oldValue { applyColors() } }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        for sublayer in [bar, clip] {
+            sublayer.anchorPoint = .zero
+            sublayer.cornerRadius = 2
+            layer.addSublayer(sublayer)
+        }
+        bar.actions = ["bounds": Self.glide]
+        clip.actions = ["hidden": NSNull()]
+        clip.isHidden = true
+        applyColors()
+        // Layer colours are resolved, so re-resolve on a light/dark change.
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: MeterBarNSView, _: UITraitCollection) in
+            view.applyColors()
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private var meterWidth: CGFloat { max(0, bounds.width - Self.clipZoneWidth) }
+
+    private static let glide: CABasicAnimation = {
+        let animation = CABasicAnimation()
+        animation.duration = 0.06
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        return animation
+    }()
+
+    func set(level newLevel: Float, clipping newClipping: Bool) {
+        let clamped = CGFloat(max(0, min(1, newLevel)))
+        if clamped != level {
+            level = clamped
+            bar.bounds.size.width = level * meterWidth
+        }
+        if newClipping != clipping {
+            clipping = newClipping
+            clip.isHidden = !clipping
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        bar.frame = CGRect(x: 0, y: 0, width: level * meterWidth, height: bounds.height)
+        clip.frame = CGRect(x: meterWidth, y: 0, width: Self.clipZoneWidth, height: bounds.height)
+        CATransaction.commit()
+    }
+
+    private func applyColors() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        bar.backgroundColor = color.resolvedColor(with: traitCollection).cgColor
+        clip.backgroundColor = UIColor.systemRed.resolvedColor(with: traitCollection).cgColor
+        CATransaction.commit()
+    }
+}
+#endif
 
 /// A meter bar for a level the caller supplies, where the surrounding view
 /// updates anyway (the Subharmonic Synth window's own meter timer).
@@ -190,6 +277,7 @@ struct HorizontalMeterBar: View {
     }
 }
 
+#if os(macOS)
 private struct MeterBarLevel: NSViewRepresentable {
     let level: Float
     let color: Color
@@ -202,6 +290,20 @@ private struct MeterBarLevel: NSViewRepresentable {
         view.set(level: level, clipping: clipping)
     }
 }
+#else
+private struct MeterBarLevel: UIViewRepresentable {
+    let level: Float
+    let color: Color
+    let clipping: Bool
+
+    func makeUIView(context: Context) -> MeterBarNSView { MeterBarNSView() }
+
+    func updateUIView(_ view: MeterBarNSView, context: Context) {
+        view.color = UIColor(color)
+        view.set(level: level, clipping: clipping)
+    }
+}
+#endif
 
 /// A sidebar channel meter that follows `DSPMeterModel` itself.  Its row does
 /// not observe the meters, so a status poll moves this layer and re-evaluates
@@ -219,13 +321,14 @@ struct ChannelMeterBar: View {
     }
 }
 
-private struct LiveMeterBar: NSViewRepresentable {
+private struct LiveMeterBar {
     let meters: DSPMeterModel
     let channel: Int
     let color: Color
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
+    #if os(macOS)
     func makeNSView(context: Context) -> MeterBarNSView {
         let view = MeterBarNSView()
         updateNSView(view, context: context)
@@ -240,6 +343,22 @@ private struct LiveMeterBar: NSViewRepresentable {
     static func dismantleNSView(_ view: MeterBarNSView, coordinator: Coordinator) {
         coordinator.subscription = nil
     }
+    #else
+    func makeUIView(context: Context) -> MeterBarNSView {
+        let view = MeterBarNSView()
+        updateUIView(view, context: context)
+        return view
+    }
+
+    func updateUIView(_ view: MeterBarNSView, context: Context) {
+        view.color = UIColor(color)
+        context.coordinator.follow(meters, channel: channel, view: view)
+    }
+
+    static func dismantleUIView(_ view: MeterBarNSView, coordinator: Coordinator) {
+        coordinator.subscription = nil
+    }
+    #endif
 
     final class Coordinator {
         var subscription: AnyCancellable?
@@ -260,13 +379,18 @@ private struct LiveMeterBar: NSViewRepresentable {
         }
     }
 }
+#if os(macOS)
+extension LiveMeterBar: NSViewRepresentable {}
+#else
+extension LiveMeterBar: UIViewRepresentable {}
+#endif
 
 /// The Subharmonic Synth's per-output sub meter, following `SubharmMeter`
 /// itself as `LiveMeterBar` follows `DSPMeterModel`: the chip that owns it
 /// does not observe the meter, so a reading moves this layer and re-evaluates
 /// no SwiftUI view at all. (Observed through SwiftUI, a reading cost the
 /// layout of the whole chip row, about 10 ms, ten times a second.)
-struct SubharmLiveMeterBar: NSViewRepresentable {
+struct SubharmLiveMeterBar {
     let meter: SubharmMeter
     let channel: Int
     /// A masked-off output is never metered by the firmware; its rail stays
@@ -276,6 +400,7 @@ struct SubharmLiveMeterBar: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
+    #if os(macOS)
     func makeNSView(context: Context) -> MeterBarNSView {
         let view = MeterBarNSView()
         updateNSView(view, context: context)
@@ -290,6 +415,22 @@ struct SubharmLiveMeterBar: NSViewRepresentable {
     static func dismantleNSView(_ view: MeterBarNSView, coordinator: Coordinator) {
         coordinator.subscription = nil
     }
+    #else
+    func makeUIView(context: Context) -> MeterBarNSView {
+        let view = MeterBarNSView()
+        updateUIView(view, context: context)
+        return view
+    }
+
+    func updateUIView(_ view: MeterBarNSView, context: Context) {
+        view.color = UIColor(color)
+        context.coordinator.follow(meter, channel: channel, enabled: enabled, view: view)
+    }
+
+    static func dismantleUIView(_ view: MeterBarNSView, coordinator: Coordinator) {
+        coordinator.subscription = nil
+    }
+    #endif
 
     final class Coordinator {
         var subscription: AnyCancellable?
@@ -315,6 +456,11 @@ struct SubharmLiveMeterBar: NSViewRepresentable {
         }
     }
 }
+#if os(macOS)
+extension SubharmLiveMeterBar: NSViewRepresentable {}
+#else
+extension SubharmLiveMeterBar: UIViewRepresentable {}
+#endif
 
 struct CpuMeter: View {
     var core: Int
@@ -1060,8 +1206,44 @@ enum InputLinkAlerts {
     /// already match.  `pageChannel` is the input whose page the Link button
     /// was clicked on, and it's offered first so the default keeps the tuning
     /// the user is actually looking at.
+    #if os(macOS)
     static func showMismatchAlert(pageChannel: Int, partner: Int,
                                   bandsDiffer: Bool, preampDiffers: Bool) -> InputLinkChoice {
+        let alert = NSAlert()
+        configureMismatchAlert(alert, pageChannel: pageChannel, partner: partner,
+                               bandsDiffer: bandsDiffer, preampDiffers: preampDiffers)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:  return .keep(pageChannel)
+        case .alertSecondButtonReturn: return .keep(partner)
+        default:                       return .cancel
+        }
+    }
+    #else
+    /// iOS: UIKit has no modal run loop, so the choice arrives in `completion`.
+    static func showMismatchAlert(pageChannel: Int, partner: Int,
+                                  bandsDiffer: Bool, preampDiffers: Bool,
+                                  completion: @escaping (InputLinkChoice) -> Void) {
+        let alert = PlatformAlert()
+        configureMismatchAlert(alert, pageChannel: pageChannel, partner: partner,
+                               bandsDiffer: bandsDiffer, preampDiffers: preampDiffers)
+        alert.present { response in
+            switch response {
+            case 0:  completion(.keep(pageChannel))
+            case 1:  completion(.keep(partner))
+            default: completion(.cancel)
+            }
+        }
+    }
+    #endif
+
+    #if os(macOS)
+    private typealias Alert = NSAlert
+    #else
+    private typealias Alert = PlatformAlert
+    #endif
+
+    private static func configureMismatchAlert(_ alert: Alert, pageChannel: Int, partner: Int,
+                                               bandsDiffer: Bool, preampDiffers: Bool) {
         let pageLabel = "IN\(pageChannel + 1)"
         let partnerLabel = "IN\(partner + 1)"
         let differences: String
@@ -1071,7 +1253,6 @@ enum InputLinkAlerts {
         default:            differences = "different input trims"
         }
 
-        let alert = NSAlert()
         alert.messageText = "Inputs \(pageChannel + 1) and \(partner + 1) don't match"
         alert.informativeText = """
             These inputs have \(differences). Linking mirrors future edits across \
@@ -1084,12 +1265,6 @@ enum InputLinkAlerts {
         alert.addButton(withTitle: "Keep \(pageLabel)")
         alert.addButton(withTitle: "Keep \(partnerLabel)")
         alert.addButton(withTitle: "Cancel")
-
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:  return .keep(pageChannel)
-        case .alertSecondButtonReturn: return .keep(partner)
-        default:                       return .cancel
-        }
     }
 }
 
@@ -1271,15 +1446,33 @@ struct InputChannelHeader: View {
         // channels link with no prompt at all.
         let mismatch = vm.inputPairMismatch(channel, partner)
         if mismatch.bands || mismatch.preamp {
+            #if os(macOS)
             let choice = InputLinkAlerts.showMismatchAlert(
                 pageChannel: channel, partner: partner,
                 bandsDiffer: mismatch.bands, preampDiffers: mismatch.preamp)
-            switch choice {
-            case .cancel:
-                return
-            case .keep(let keeper):
-                vm.syncInputPair(from: keeper, to: keeper == channel ? partner : channel)
+            completeLink(after: choice)
+            #else
+            InputLinkAlerts.showMismatchAlert(
+                pageChannel: channel, partner: partner,
+                bandsDiffer: mismatch.bands, preampDiffers: mismatch.preamp) { choice in
+                completeLink(after: choice)
             }
+            #endif
+            return
+        }
+        completeLink(after: nil)
+    }
+
+    /// The rest of `toggleLink` once any mismatch has been resolved (`nil`
+    /// when the pair already matched).
+    private func completeLink(after choice: InputLinkChoice?) {
+        switch choice {
+        case .cancel:
+            return
+        case .keep(let keeper):
+            vm.syncInputPair(from: keeper, to: keeper == channel ? partner : channel)
+        case nil:
+            break
         }
 
         vm.setInputPairLinked(pair, true)
@@ -1635,15 +1828,23 @@ struct FilterListView: View {
                                 // explicit confirmation on the XO tab.  Re-enabling
                                 // is safe, so onEnableAll stays unprompted.
                                 if isCrossoverMode {
+                                    #if os(macOS)
                                     let alert = NSAlert()
+                                    #else
+                                    let alert = PlatformAlert()
+                                    #endif
                                     alert.messageText = "Bypass this output's crossovers?"
                                     alert.informativeText = "This sends full-range audio to this output with no crossover protection, which can damage unprotected drivers such as tweeters. Continue only if you are sure."
                                     alert.alertStyle = .critical
                                     alert.addButton(withTitle: "Bypass All")
                                     alert.addButton(withTitle: "Cancel")
+                                    #if os(macOS)
                                     if alert.runModal() == .alertFirstButtonReturn {
                                         doBypassAll()
                                     }
+                                    #else
+                                    alert.present { if $0 == 0 { doBypassAll() } }
+                                    #endif
                                 } else {
                                     doBypassAll()
                                 }
@@ -1658,15 +1859,23 @@ struct FilterListView: View {
                                 title: "Clear All",
                                 tint: .secondary,
                                 action: {
+                                    #if os(macOS)
                                     let alert = NSAlert()
+                                    #else
+                                    let alert = PlatformAlert()
+                                    #endif
                                     alert.messageText = "Clear All Bands?"
                                     alert.informativeText = "Every band in this list will be reset to its default (flat) state. This cannot be undone."
                                     alert.alertStyle = .warning
                                     alert.addButton(withTitle: "Clear All")
                                     alert.addButton(withTitle: "Cancel")
+                                    #if os(macOS)
                                     if alert.runModal() == .alertFirstButtonReturn {
                                         onClear()
                                     }
+                                    #else
+                                    alert.present { if $0 == 0 { onClear() } }
+                                    #endif
                                 },
                                 help: "Reset all bands"
                             )
@@ -1696,6 +1905,7 @@ struct FilterListView: View {
 
 // MARK: - NSViewRepresentable Components
 
+#if os(macOS)
 private class PaddedPopUpButtonCell: NSPopUpButtonCell {
     override func drawTitle(_ title: NSAttributedString, withFrame frame: NSRect, in controlView: NSView) -> NSRect {
         super.drawTitle(title, withFrame: frame.offsetBy(dx: 0, dy: 1), in: controlView)
@@ -1827,6 +2037,38 @@ struct BorderlessPopUpButton<T: Hashable>: NSViewRepresentable {
         }
     }
 }
+#else
+/// iOS: the same pop-up as a SwiftUI `Menu` around a `Picker`, which gives
+/// the native checkmarked list on touch.  Long press stands in for the
+/// right-click hook.
+struct BorderlessPopUpButton<T: Hashable>: View {
+    let items: [T]
+    let titleForItem: (T) -> String
+    @Binding var selection: T
+
+    var font: NSFont?
+    var enabled: Bool = true
+    var showsHoverBorder: Bool = true
+    var onRightClick: (() -> Void)? = nil
+
+    var body: some View {
+        Menu {
+            Picker("", selection: $selection) {
+                ForEach(items, id: \.self) { item in
+                    Text(titleForItem(item)).tag(item)
+                }
+            }
+        } label: {
+            Text(titleForItem(selection))
+                .font(font.map { Font($0) } ?? .body)
+                .lineLimit(1)
+                .foregroundColor(enabled ? .primary : .secondary)
+        }
+        .disabled(!enabled)
+        .onRightClick { onRightClick?() }
+    }
+}
+#endif
 
 // MARK: - Filter Row
 
@@ -1903,9 +2145,13 @@ struct FilterRowView: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 guard let graphSelection, isActive else { return }
+                #if os(macOS)
                 let mods = NSEvent.modifierFlags
                 graphSelection.listClick(index, command: mods.contains(.command),
                                          shift: mods.contains(.shift), isActive: isBandActive)
+                #else
+                graphSelection.listClick(index, command: false, shift: false, isActive: isBandActive)
+                #endif
             }
 
             if isCrossoverMode {
@@ -2551,6 +2797,7 @@ struct ValueField: View {
 /// nothing SwiftUI can see, which is the whole point. Begin and end are AppKit
 /// operations too, so the grab and the drag cost SwiftUI nothing; only the
 /// commit on release goes through the view model.
+#if os(macOS)
 final class LiveValueReadout {
     var format: (Float) -> String = { String($0) }
     fileprivate weak var label: LiveValueLabelView?
@@ -2638,6 +2885,51 @@ private struct LiveValueLabel: NSViewRepresentable {
         readout.label = label
     }
 }
+#else
+final class LiveValueReadout {
+    var format: (Float) -> String = { String($0) }
+    fileprivate weak var label: LiveValueLabelView?
+
+    func beginLive(showing value: Float) {
+        guard let label else { return }
+        label.text = format(value)
+        label.isHidden = false
+    }
+
+    func show(_ value: Float) {
+        label?.text = format(value)
+    }
+
+    func endLive() {
+        label?.isHidden = true
+    }
+}
+
+/// iOS: an opaque `UILabel` drawn over the field for the drag.
+final class LiveValueLabelView: UILabel {}
+
+private struct LiveValueLabel: UIViewRepresentable {
+    let readout: LiveValueReadout
+
+    func makeUIView(context: Context) -> LiveValueLabelView {
+        let label = LiveValueLabelView()
+        label.isHidden = true
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+        label.textAlignment = .right
+        label.lineBreakMode = .byClipping
+        label.textColor = .label
+        label.backgroundColor = .secondarySystemBackground
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
+    }
+
+    func updateUIView(_ label: LiveValueLabelView, context: Context) {
+        readout.label = label
+    }
+}
+
+#endif
 
 // MARK: - Tool Window Column
 
@@ -2653,6 +2945,7 @@ extension View {
 
 // MARK: - Value Field Scroll Handler
 
+#if os(macOS)
 struct ValueFieldScrollHandler: NSViewRepresentable {
     let value: Float
     let step: Float
@@ -2720,6 +3013,18 @@ class ValueFieldScrollNSView: NSView {
         onCommit?(minValue.map { max(newValue, $0) } ?? newValue)
     }
 }
+#else
+/// Cmd-scroll to nudge a value has no touch equivalent; the field is edited
+/// by typing.  A transparent placeholder keeps the call sites unchanged.
+struct ValueFieldScrollHandler: View {
+    let value: Float
+    let step: Float
+    let minValue: Float?
+    let onCommit: (Float) -> Void
+
+    var body: some View { Color.clear.allowsHitTesting(false) }
+}
+#endif
 
 // MARK: - Sidebar Icon Button
 
