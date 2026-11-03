@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Signal Generator Window Controller
 
+#if os(macOS)
 class TestSignalsWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -47,6 +48,13 @@ extension TestSignalsWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class TestSignalsWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Signal Generator") { TestSignalsView(vm: vm).onboardingHint("test-signals") }
+    }
+}
+#endif
 
 // MARK: - Type Catalogue (labels, glyphs, fallback descriptors)
 

@@ -197,8 +197,13 @@ struct BodePlotView: View {
             c.offsetDB = gainPreview.gains[output] ?? vm.outputGainDB[output]
         }
         c.flat = vm.bypass && ch < BASE_MATRIX_INPUTS
+        #if os(macOS)
         let rgb = NSColor(colorForEQChannel(ch)).usingColorSpace(.sRGB) ?? .white
         c.curveColor = SIMD4(Float(rgb.redComponent), Float(rgb.greenComponent), Float(rgb.blueComponent), 1)
+        #else
+        c.curveColor = RtaMetalBarPanel.rgba(colorForEQChannel(ch))
+        c.curveColor.w = 1
+        #endif
         c.lineWidth = Float(settings.graphLineWidth)
         c.glow = settings.showGraphGlow
         c.availableTypes = availableFilterTypes(vm: vm, includeLinkwitz: false)
@@ -518,6 +523,7 @@ struct GraphResizeHandle: View {
     }
 }
 
+#if os(macOS)
 /// A vertical drag strip that resizes whatever height setting it is given.
 /// Defaults to the response graph's; the spectrum bar strip uses its own.
 struct GraphResizeHandleRepresentable: NSViewRepresentable {
@@ -577,6 +583,34 @@ class GraphResizeNSView: NSView {
         isDragging = false
     }
 }
+#else
+/// iOS: the same drag strip as a SwiftUI drag gesture.
+struct GraphResizeHandleRepresentable: View {
+    var value: ReferenceWritableKeyPath<AppSettings, Double> = \.graphHeight
+    var range: ClosedRange<Double> = 200...350
+    var pointsPerUnit: Double = 1
+    @State private var dragStartHeight: Double?
+
+    var body: some View {
+        Capsule()
+            .fill(Color.secondary.opacity(0.35))
+            .frame(width: 36, height: 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { drag in
+                        let start = dragStartHeight ?? AppSettings.shared[keyPath: value]
+                        dragStartHeight = start
+                        // Screen y grows downward here, so dragging down grows the graph.
+                        let newHeight = start + Double(drag.translation.height) / max(pointsPerUnit, 0.01)
+                        AppSettings.shared[keyPath: value] = min(max(newHeight, range.lowerBound), range.upperBound)
+                    }
+                    .onEnded { _ in dragStartHeight = nil }
+            )
+    }
+}
+#endif
 
 // MARK: - Graph Legend
 

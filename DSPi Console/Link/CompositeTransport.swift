@@ -15,7 +15,10 @@ import Foundation
 import Combine
 
 final class CompositeTransport: DeviceTransport {
-    private let local: HubTransport
+    /// The local device path: the in-process hub's session on macOS
+    /// (`HubTransport`), the demo device on iOS.  Only the DeviceTransport
+    /// surface is used, so either fits.
+    private let local: any DeviceTransport
     private let tokens: LinkTokenStore
     private let clientName: String
     /// Builds a fresh client connection; injected so tests use a fake.
@@ -60,7 +63,7 @@ final class CompositeTransport: DeviceTransport {
     /// USBDevice opens, as it would have with no hub on the network.
     private var remoteWasAutoSelected = false
 
-    init(local: HubTransport, tokens: LinkTokenStore, clientName: String,
+    init(local: any DeviceTransport, tokens: LinkTokenStore, clientName: String,
          makeClient: @escaping () -> LinkClientProtocol) {
         self.local = local
         self.tokens = tokens

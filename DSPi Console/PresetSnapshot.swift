@@ -1,4 +1,8 @@
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 // MARK: - Snapshot Types
 
@@ -681,6 +685,25 @@ enum UnsavedChangesAction {
 }
 
 enum PresetAlerts {
+    #if os(iOS)
+    /// iOS: the same question, answered asynchronously.
+    static func showUnsavedChangesAlert(diff: PresetDiff, completion: @escaping (UnsavedChangesAction) -> Void) {
+        let alert = PlatformAlert()
+        alert.messageText = "Unsaved Changes"
+        alert.informativeText = "The current preset has unsaved changes:\n\n\(diff.summary)\n\nSave before continuing?"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Discard")
+        alert.addButton(withTitle: "Cancel")
+        alert.present { response in
+            switch response {
+            case 0:  completion(.save)
+            case 1:  completion(.discard)
+            default: completion(.cancel)
+            }
+        }
+    }
+    #else
     static func showUnsavedChangesAlert(diff: PresetDiff) -> UnsavedChangesAction {
         let alert = NSAlert()
         alert.messageText = "Unsaved Changes"
@@ -699,4 +722,5 @@ enum PresetAlerts {
             return .cancel
         }
     }
+    #endif
 }

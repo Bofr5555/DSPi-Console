@@ -146,11 +146,12 @@ final class RtaMetalCurveResources {
     }
 }
 
-struct RtaMetalCurves: NSViewRepresentable {
+struct RtaMetalCurves {
     let engine: RtaEngine
     let source: RtaMetalCurveSource
     let active: Bool
 
+    #if os(macOS)
     func makeNSView(context: Context) -> RtaMetalCurveView {
         let view = RtaMetalCurveView()
         view.update(source: source, engine: engine, active: active)
@@ -160,7 +161,23 @@ struct RtaMetalCurves: NSViewRepresentable {
         view.update(source: source, engine: engine, active: active)
     }
     static func dismantleNSView(_ view: RtaMetalCurveView, coordinator: ()) { view.stop() }
+    #else
+    func makeUIView(context: Context) -> RtaMetalCurveView {
+        let view = RtaMetalCurveView()
+        view.update(source: source, engine: engine, active: active)
+        return view
+    }
+    func updateUIView(_ view: RtaMetalCurveView, context: Context) {
+        view.update(source: source, engine: engine, active: active)
+    }
+    static func dismantleUIView(_ view: RtaMetalCurveView, coordinator: ()) { view.stop() }
+    #endif
 }
+#if os(macOS)
+extension RtaMetalCurves: NSViewRepresentable {}
+#else
+extension RtaMetalCurves: UIViewRepresentable {}
+#endif
 
 /// Same lifecycle as the bar surface, including on-demand redraw with smoothing
 /// off and stopping immediately when detached, hidden, minimised or occluded.

@@ -1500,6 +1500,7 @@ final class BufferFillHistory {
     }
 }
 
+#if os(macOS)
 /// Scrolls one buffer's history on the GPU.  The trace is drawn into short
 /// segment layers inside one content layer: a poll redraws only the newest
 /// segment's few points and slides the content layer left, which Core
@@ -1819,3 +1820,28 @@ struct BufferFillSparkline: NSViewRepresentable {
         view.setWatermarks(min: minPct, max: maxPct)
     }
 }
+#else
+/// iOS placeholder: the watermark band without the scrolling trace.  The
+/// Core Animation trace above is AppKit-hosted; porting it to UIKit is left
+/// for the compact-layout pass (A3).
+struct BufferFillSparkline: View {
+    let history: BufferFillHistory
+    let series: Int
+    let color: NSColor
+    let minPct: UInt8
+    let maxPct: UInt8
+
+    var body: some View {
+        GeometryReader { geo in
+            let low = CGFloat(min(minPct, maxPct)) / 100
+            let high = CGFloat(max(minPct, maxPct)) / 100
+            Rectangle()
+                .fill(Color(uiColor: color).opacity(0.14))
+                .frame(height: max(1, (high - low) * geo.size.height))
+                .offset(y: (1 - high) * geo.size.height)
+        }
+        .clipped()
+        .allowsHitTesting(false)
+    }
+}
+#endif

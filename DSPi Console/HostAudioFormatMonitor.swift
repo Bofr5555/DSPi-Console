@@ -17,6 +17,7 @@
 //
 
 import Foundation
+#if os(macOS)
 import CoreAudio
 
 /// Resolves the DSPi's CoreAudio output device and publishes its host-selected
@@ -237,3 +238,19 @@ final class HostAudioFormatMonitor {
         return channels
     }
 }
+#else
+/// iOS has no API that reports the host computer's USB audio format for the
+/// DSPi (the phone or tablet is the host only when it plays into the DSPi
+/// itself), so the monitor always reports "not found" and the view model
+/// falls back to the device-reported active count, as it does on macOS when
+/// the CoreAudio device cannot be resolved.
+final class HostAudioFormatMonitor {
+    var onChannelCountChanged: ((Int?) -> Void)?
+
+    func start() {
+        DispatchQueue.main.async { [weak self] in self?.onChannelCountChanged?(nil) }
+    }
+    func stop() {}
+    func setPreferredSerial(_ serial: String?) {}
+}
+#endif

@@ -1,4 +1,10 @@
+#if os(macOS)
 import AppKit
+typealias RtaSurfaceBaseView = NSView
+#else
+import UIKit
+typealias RtaSurfaceBaseView = UIView
+#endif
 import Metal
 import QuartzCore
 
@@ -54,7 +60,7 @@ protocol RtaMetalSurfaceDelegate: AnyObject {
 /// A CAMetalLayer view drawn from `RtaRenderThread`.  It stops drawing when
 /// detached, hidden, occluded or minimised; while nothing animates it draws
 /// only when its delegate reports a change or the main thread asks.
-class RtaMetalSurface: NSView {
+class RtaMetalSurface: RtaSurfaceBaseView {
     /// The display link's ceiling, as on MTKView.
     var preferredFramesPerSecond = 60 {
         didSet {
@@ -105,8 +111,17 @@ class RtaMetalSurface: NSView {
 
     init(device: MTLDevice?) {
         super.init(frame: .zero)
+        #if os(macOS)
         wantsLayer = true
         layerContentsRedrawPolicy = .never
+        #else
+        // UIKit has no backing-layer hook taking an existing layer, so the
+        // Metal layer is a sublayer that `layoutSubviews` keeps full size.
+        isOpaque = false
+        backgroundColor = .clear
+        isUserInteractionEnabled = false
+        self.layer.addSublayer(metalLayer)
+        #endif
         let layer = metalLayer
         layer.device = device
         layer.pixelFormat = .bgra8Unorm
@@ -117,11 +132,15 @@ class RtaMetalSurface: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    #if os(macOS)
     override func makeBackingLayer() -> CALayer { metalLayer }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {}
     override var isOpaque: Bool { false }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    #else
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? { nil }
+    #endif
 
     /// Draw on the next display frame even if the delegate reports no change.
     func requestRedraw() {
@@ -136,6 +155,7 @@ class RtaMetalSurface: NSView {
 
     // MARK: Geometry
 
+    #if os(macOS)
     override func layout() {
         super.layout()
         updateDrawableSize()
@@ -150,9 +170,23 @@ class RtaMetalSurface: NSView {
         super.viewDidChangeBackingProperties()
         updateDrawableSize()
     }
+    #else
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        metalLayer.frame = bounds
+        CATransaction.commit()
+        updateDrawableSize()
+    }
+    #endif
 
     private func updateDrawableSize() {
+        #if os(macOS)
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        #else
+        let scale = window?.screen.scale ?? traitCollection.displayScale
+        #endif
         let size = bounds.size
         let pixels = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
         stateLock.lock()
@@ -170,6 +204,7 @@ class RtaMetalSurface: NSView {
 
     // MARK: Lifecycle
 
+    #if os(macOS)
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         removeObservers()
@@ -189,10 +224,32 @@ class RtaMetalSurface: NSView {
 
     override func viewDidHide() { super.viewDidHide(); updateVisibility() }
     override func viewDidUnhide() { super.viewDidUnhide(); updateVisibility() }
+    #else
+    // iOS has no occlusion or miniaturising: visible means in a window and
+    // not hidden.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            if link == nil { attachLink() }
+            updateDrawableSize()
+        } else {
+            detachLink()
+        }
+        updateVisibility()
+    }
+
+    override var isHidden: Bool {
+        didSet { if isHidden != oldValue { updateVisibility() } }
+    }
+    #endif
 
     private func updateVisibility() {
+        #if os(macOS)
         let visible = requestedActive && window?.occlusionState.contains(.visible) == true
             && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+        #else
+        let visible = requestedActive && window != nil && !isHidden
+        #endif
         stateLock.lock()
         rendering = visible
         if visible { dirty = true }
@@ -211,7 +268,11 @@ class RtaMetalSurface: NSView {
     }
 
     private func attachLink() {
+        #if os(macOS)
         let link = displayLink(target: RtaSurfaceLinkTarget(self), selector: #selector(RtaSurfaceLinkTarget.tick(_:)))
+        #else
+        let link = CADisplayLink(target: RtaSurfaceLinkTarget(self), selector: #selector(RtaSurfaceLinkTarget.tick(_:)))
+        #endif
         link.isPaused = true
         link.preferredFrameRateRange = frameRateRange
         self.link = link

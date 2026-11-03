@@ -45,6 +45,7 @@ private let isoTable: [IsoData] = [
 
 // MARK: - Loudness Window Controller
 
+#if os(macOS)
 class LoudnessWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -88,6 +89,13 @@ extension LoudnessWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class LoudnessWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Loudness Compensation") { LoudnessView(vm: vm, loudness: vm.loudness).onboardingHint("loudness") }
+    }
+}
+#endif
 
 // MARK: - ISO 226:2003 Computation (for visualization only)
 

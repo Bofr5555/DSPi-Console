@@ -87,9 +87,15 @@ struct RtaMetalBarPanel {
     let showPeakHold: Bool
 
     static func rgba(_ color: Color) -> SIMD4<Float> {
+        #if os(macOS)
         let rgb = NSColor(color).usingColorSpace(.sRGB) ?? .white
         return SIMD4(Float(rgb.redComponent), Float(rgb.greenComponent),
                      Float(rgb.blueComponent), Float(rgb.alphaComponent))
+        #else
+        var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+        _ = UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return SIMD4(Float(r), Float(g), Float(b), Float(a))
+        #endif
     }
 }
 
@@ -133,11 +139,12 @@ final class RtaMetalBarResources {
     }
 }
 
-struct RtaMetalBars: NSViewRepresentable {
+struct RtaMetalBars {
     let engine: RtaEngine
     let sources: [RtaMetalBarSource]
     var active = true
 
+    #if os(macOS)
     func makeNSView(context: Context) -> RtaMetalBarView {
         let view = RtaMetalBarView()
         view.update(sources: sources, engine: engine, active: active)
@@ -151,7 +158,27 @@ struct RtaMetalBars: NSViewRepresentable {
     static func dismantleNSView(_ view: RtaMetalBarView, coordinator: ()) {
         view.stop()
     }
+    #else
+    func makeUIView(context: Context) -> RtaMetalBarView {
+        let view = RtaMetalBarView()
+        view.update(sources: sources, engine: engine, active: active)
+        return view
+    }
+
+    func updateUIView(_ view: RtaMetalBarView, context: Context) {
+        view.update(sources: sources, engine: engine, active: active)
+    }
+
+    static func dismantleUIView(_ view: RtaMetalBarView, coordinator: ()) {
+        view.stop()
+    }
+    #endif
 }
+#if os(macOS)
+extension RtaMetalBars: NSViewRepresentable {}
+#else
+extension RtaMetalBars: UIViewRepresentable {}
+#endif
 
 /// A single surface for an entire strip, drawn off the main thread; see
 /// `RtaMetalSurface`.  With interpolation off it draws only on data/size changes.

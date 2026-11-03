@@ -1,8 +1,10 @@
 import Foundation
 import Combine
+#if os(macOS)
 import IOKit
 import IOKit.usb
 import IOKit.serial
+#endif
 
 // MARK: - Device Model
 
@@ -42,6 +44,10 @@ extension DSPiDevice: Hashable {
         hasher.combine(serial)
     }
 }
+
+// The IOKit driver below is macOS-only; the device model above is shared
+// with the iOS target, whose transports (Demo, DSPi Link) list DSPiDevices too.
+#if os(macOS)
 
 // MARK: - Global C-Convention Callbacks
 
@@ -788,3 +794,5 @@ extension USBDevice: DeviceTransport {
     func acquireDeviceLock(reason: String, timeout: TimeInterval) -> Bool { true }
     func releaseDeviceLock() {}
 }
+
+#endif // os(macOS)

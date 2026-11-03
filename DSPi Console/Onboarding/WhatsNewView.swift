@@ -58,6 +58,7 @@ enum WhatsNew {
 
 // MARK: - Window Controller
 
+#if os(macOS)
 class WhatsNewWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -91,6 +92,14 @@ class WhatsNewWindowController: NSObject, ObservableObject {
 extension WhatsNewWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) { isVisible = false }
 }
+#else
+class WhatsNewWindowController: IOSToolWindowController {
+    func show() {
+        present(title: "What's New") { WhatsNewView(onClose: { [weak self] in self?.hide() }) }
+        WhatsNew.markCurrentAsRead()
+    }
+}
+#endif
 
 // MARK: - View
 

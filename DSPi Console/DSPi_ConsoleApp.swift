@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 // MARK: - App State (Shared USB Device and View Model)
 class AppState: ObservableObject {
     static let shared = AppState()
+    #if os(macOS)
     let usb = USBDevice()
 
     /// The DSPi Link gateway.  It owns the USB device's command path; the local
@@ -59,6 +60,32 @@ class AppState: ObservableObject {
     @MainActor lazy var linkClientCoordinator: LinkClientCoordinator =
         LinkClientCoordinator(composite: transport,
                               ownHubID: linkHub.auth.hubID.uuidString.lowercased())
+    #else
+    /// iOS has no USB path to a DSPi yet (DriverKit on iPad is A5, MIDI is
+    /// A8), so the local side of the composite is the demo device: a simulated
+    /// DSPi that answers every request from fixture state.  Devices shared by
+    /// DSPi Link hubs on the network join the same list, as on macOS.
+    lazy var demoTransport: FakeTransport = FakeTransport(autoSelect: FakeTransport.autoSelectAtLaunch)
+
+    /// The local device path, under the name the macOS code uses for it
+    /// (`DSPViewModel`'s default transport, the Stats window).
+    var usb: any DeviceTransport { demoTransport }
+
+    lazy var transport: CompositeTransport = {
+        // No pairing prompt yet: a hub that asks for a PIN cannot be joined
+        // from iOS until the prompt is ported (it is an NSAlert on macOS).
+        CompositeTransport(
+            local: demoTransport,
+            tokens: LinkTokenStore(),
+            clientName: UIDevice.current.name,
+            makeClient: { LinkClient() })
+    }()
+
+    /// Console as a client: browses for DSPi Link hubs and feeds the
+    /// composite.  The iOS app is never a hub itself, so it has no own hub id.
+    @MainActor lazy var linkClientCoordinator: LinkClientCoordinator =
+        LinkClientCoordinator(composite: transport, ownHubID: nil)
+    #endif
 
     lazy var viewModel: DSPViewModel = DSPViewModel(transport: transport)
 
@@ -374,8 +401,16 @@ private enum SettingsCategory: String, CaseIterable, Identifiable, Hashable {
     }
 
     /// Non-collapsible sidebar groups, in display order.
+    #if os(macOS)
+    private static let applicationPages: [SettingsCategory] = [.general, .softwareUpdate, .advanced, .networking]
+    #else
+    // iOS: no self-update (the App Store updates the app) and no hub to share
+    // devices from (the iOS app is a Link client only).
+    private static let applicationPages: [SettingsCategory] = [.general, .advanced]
+    #endif
+
     static let groups: [(title: String, items: [SettingsCategory])] = [
-        ("Application", [.general, .softwareUpdate, .advanced, .networking]),
+        ("Application", applicationPages),
         ("Display",     [.graphing, .spectrum]),
         // Overview leads the group: it is the read-only summary of what every
         // page below it has claimed.
@@ -408,6 +443,7 @@ private struct SettingsBadge: View {
     }
 }
 
+#if os(macOS)
 /// Reaches the hosting `NSWindow` to compact its title bar and drop the title
 /// text. SwiftUI's `.windowToolbarStyle` scene modifier is ignored by the
 /// `Settings` scene, so we set `toolbarStyle` on the window directly.
@@ -469,6 +505,7 @@ private struct SettingsWindowConfigurator: NSViewRepresentable {
         }
     }
 }
+#endif
 
 /// Cross-page navigation signal for Settings — lets one page deep-link to a
 /// specific control on another (e.g. the persistence notice jumping to the
@@ -498,9 +535,18 @@ struct SettingsView: View {
     private var canGoBack: Bool { historyIndex > 0 }
     private var canGoForward: Bool { historyIndex < history.count - 1 }
 
+    /// The sidebar's selection.  iOS lists select through an optional.
+    #if os(macOS)
+    private var listSelection: Binding<SettingsCategory> { $selection }
+    #else
+    private var listSelection: Binding<SettingsCategory?> {
+        Binding(get: { selection }, set: { if let page = $0 { selection = page } })
+    }
+    #endif
+
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
+            List(selection: listSelection) {
                 ForEach(SettingsCategory.groups, id: \.title) { group in
                     let items = group.items.filter { $0.isAvailable(vm) }
                     if !items.isEmpty {
@@ -572,7 +618,9 @@ struct SettingsView: View {
         // NSWindow's toolbar style directly: `.expanded` (the default) stacks
         // the title bar above the toolbar, doubling its height; `.unifiedCompact`
         // collapses them into one short row.
+        #if os(macOS)
         .background(SettingsWindowConfigurator())
+        #endif
         .onAppear {
             ensureSelectionAvailable()
             if history.isEmpty {
@@ -621,11 +669,19 @@ struct SettingsView: View {
         switch selection {
         case .overview:         PinOverviewTab()
         case .general:          GeneralSettingsTab()
+        #if os(macOS)
         case .softwareUpdate:   SoftwareUpdateSettingsTab()
+        #else
+        case .softwareUpdate:   EmptyView()
+        #endif
         case .graphing:         GraphingSettingsTab()
         case .spectrum:         SpectrumSettingsTab()
         case .advanced:         AdvancedSettingsTab()
+        #if os(macOS)
         case .networking:       NetworkingSettingsTab()
+        #else
+        case .networking:       EmptyView()
+        #endif
         case .globalParams:     GlobalSettingsTab()
         // Several specialist subsystems are settings pages rather than
         // windows, so their first-open card rides on the page.
@@ -936,6 +992,7 @@ struct GeneralSettingsTab: View {
     }
 }
 
+#if os(macOS)
 /// Settings > Software Update: the running version, the result of the last
 /// check, and the controls to check or install.  Driven by AppUpdateChecker.
 struct SoftwareUpdateSettingsTab: View {
@@ -1037,6 +1094,7 @@ struct SoftwareUpdateSettingsTab: View {
         .formStyle(.grouped)
     }
 }
+#endif
 
 // MARK: - Global Settings Tab
 //
@@ -2804,6 +2862,7 @@ struct ControlInterfacesSettingsTab: View {
 // a press gesture (event) and many nouns address a channel/band (target/index).
 // See control_surfaces_spec.md.
 
+#if os(macOS)
 /// A borderless, left-aligned single-line text field for use inside a grouped
 /// Form.  A grouped Form on macOS force-right-aligns any SwiftUI TextField's
 /// text and prompt (it styles the field as the row's trailing "value" column;
@@ -2886,6 +2945,25 @@ struct LeftAlignedTextField: NSViewRepresentable {
         }
     }
 }
+#else
+/// iOS: a grouped Form keeps a plain TextField left-aligned, so no UIKit
+/// field is needed.  Commits on Return and when focus leaves the field.
+struct LeftAlignedTextField: View {
+    @Binding var text: String
+    var placeholder: String
+    var onCommit: () -> Void = {}
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .font(.headline)
+            .multilineTextAlignment(.leading)
+            .focused($focused)
+            .onSubmit { onCommit() }
+            .onChange(of: focused) { _, isFocused in if !isFocused { onCommit() } }
+    }
+}
+#endif
 
 struct ControlSurfacesSettingsTab: View {
     @ObservedObject private var vm = AppState.shared.viewModel
@@ -9109,15 +9187,23 @@ struct HardwareSettingsTab: View {
                                     // I2S DAC.  Warn before doing so while any output slot
                                     // is driving an I2S DAC.
                                     if vm.anySlotIsI2S {
+                                        #if os(macOS)
                                         let alert = NSAlert()
+                                        #else
+                                        let alert = PlatformAlert()
+                                        #endif
                                         alert.messageText = "Change I2S clock mode?"
                                         alert.informativeText = "One or more I2S outputs are active. Switching between Master and Slave modes may cause sustained loud noises to be emitted by the connected I2S DAC if wiring has not been adjusted."
                                         alert.alertStyle = .critical
                                         alert.addButton(withTitle: "Change Clock Mode")
                                         alert.addButton(withTitle: "Cancel")
+                                        #if os(macOS)
                                         if alert.runModal() == .alertFirstButtonReturn {
                                             apply()
                                         }
+                                        #else
+                                        alert.present { if $0 == 0 { apply() } }
+                                        #endif
                                     } else {
                                         apply()
                                     }
@@ -9895,6 +9981,7 @@ struct HardwareSettingsTab: View {
     }
 }
 
+#if os(macOS)
 // MARK: - Matrix Mixer Window Controller
 class MatrixMixerWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
@@ -10158,6 +10245,49 @@ extension GraphWindowController: NSWindowDelegate {
         }
     }
 }
+#else
+// MARK: - Tool window controllers (iOS)
+//
+// The same API as the macOS controllers above, presented as sheets through
+// `ToolSheetPresenter` (iOS/iOSCompat.swift).
+
+class MatrixMixerWindowController: IOSToolWindowController {
+    func toggle() { isVisible ? hide() : show() }
+
+    func show() {
+        present(title: "Matrix Mixer") {
+            MatrixMixerView(vm: AppState.shared.viewModel)
+                .onboardingHint("matrix-mixer")
+                .basicsTour(OnboardingCoordinator.shared, host: .matrixMixer)
+        }
+    }
+
+    /// A sheet is always frontmost; nothing to float.
+    func setFloating(_ floating: Bool) {}
+}
+
+class StatsWindowController: IOSToolWindowController {
+    private var statsVM: StatsViewModel?
+
+    func toggle(transport: any DeviceTransport) {
+        isVisible ? hide() : show(transport: transport)
+    }
+
+    func show(transport: any DeviceTransport) {
+        let model = statsVM ?? StatsViewModel(transport: transport)
+        statsVM = model
+        present(title: "System Statistics") { StatsView(vm: model).onboardingHint("stats") }
+    }
+}
+
+class GraphWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            present(title: "Filter Response") { GraphPopOutView(vm: vm).environmentObject(self) }
+        }
+    }
+}
+#endif
 
 struct GraphPopOutView: View {
     @ObservedObject var vm: DSPViewModel
@@ -10196,6 +10326,7 @@ struct GraphPopOutView: View {
     }
 }
 
+#if os(macOS)
 /// Sheet showing how far a configuration import has got.  Applying a document
 /// is several hundred control transfers; without it the window sits looking
 /// unresponsive while the device is half-configured.
@@ -10243,7 +10374,9 @@ private final class ConfigurationProgressSheet {
         self.sheet = nil
     }
 }
+#endif
 
+#if os(macOS)
 // MARK: - File Menu Actions
 struct FileMenuActions {
     static func importFilters() {
@@ -10957,7 +11090,41 @@ struct FileMenuActions {
         alert.runModal()
     }
 }
+#else
+// MARK: - File Menu Actions (iOS)
+/// Filter and configuration files go through NSOpenPanel/NSSavePanel on
+/// macOS.  On iOS they belong in `.fileImporter`/`.fileExporter` on the
+/// presenting view, which is part of the compact-layout work (A3); until then
+/// the entry points explain that rather than doing nothing.
+struct FileMenuActions {
+    static func importFilters() { notYet("Importing filters") }
+    static func exportFilters() { notYet("Exporting filters") }
+    static func importConfiguration() { notYet("Importing a device configuration") }
+    static func exportConfiguration() { notYet("Exporting a device configuration") }
 
+    static func saveMasterVolume() {
+        let vm = AppState.shared.viewModel
+        guard vm.isDeviceConnected else { return }
+        DispatchQueue.global(qos: .userInitiated).async { _ = vm.saveMasterVolume() }
+    }
+
+    static func saveOutputConfig() {
+        let vm = AppState.shared.viewModel
+        guard vm.isDeviceConnected else { return }
+        DispatchQueue.global(qos: .userInitiated).async { _ = vm.saveOutputConfig() }
+    }
+
+    private static func notYet(_ what: String) {
+        let alert = PlatformAlert()
+        alert.messageText = "Not available yet"
+        alert.informativeText = "\(what) is not available in the iOS version yet."
+        alert.addButton(withTitle: "OK")
+        alert.present()
+    }
+}
+#endif
+
+#if os(macOS)
 // MARK: - Tools Menu Actions
 struct ToolsMenuActions {
     static func commitParameters() {
@@ -11065,7 +11232,82 @@ struct ToolsMenuActions {
         alert.runModal()
     }
 }
+#else
+// MARK: - Tools Menu Actions (iOS)
+/// The same three flash operations with asynchronous alerts.  The device
+/// calls block, so they run off the main thread and report back on it.
+struct ToolsMenuActions {
+    static func commitParameters() {
+        let vm = AppState.shared.viewModel
+        guard vm.isDeviceConnected else {
+            show("Error", "Not connected to device")
+            return
+        }
+        let slot = vm.activePresetSlot
+        confirm("Save Preset", "Save current parameters to preset slot \(slot + 1)?", button: "Save") {
+            let result = vm.savePreset(slot: slot)
+            if result == PRESET_OK {
+                show("Success", "Preset saved successfully")
+            } else {
+                show("Error", "Failed to save preset (\(presetFailureText(result)))")
+            }
+        }
+    }
 
+    static func revertToSaved() {
+        confirm("Revert to Saved", "Revert to last saved parameters?\n\nCurrent unsaved changes will be lost.",
+                button: "Revert") {
+            let vm = AppState.shared.viewModel
+            guard vm.isDeviceConnected else { show("Error", "Not connected to device"); return }
+            switch vm.loadParams() {
+            case FLASH_OK:          show("Success", "Parameters reverted successfully")
+            case FLASH_ERR_NO_DATA: show("Information", "No saved parameters found.\n\nThe device is using factory defaults.")
+            case FLASH_ERR_CRC:     show("Error", "Saved data is corrupted")
+            default:                show("Error", "Failed to load parameters")
+            }
+        }
+    }
+
+    static func factoryReset() {
+        confirm("Factory Reset",
+                "Do you wish to clear all active parameters?\n\nThis will not overwrite your saved parameters unless you run 'Commit Parameters'.",
+                button: "Reset", critical: true) {
+            let vm = AppState.shared.viewModel
+            guard vm.isDeviceConnected else { show("Error", "Not connected to device"); return }
+            if vm.factoryReset() == FLASH_OK {
+                show("Success", "Factory reset complete")
+            } else {
+                show("Error", "Failed to reset parameters")
+            }
+        }
+    }
+
+    /// Asks, then runs `action` off the main thread if confirmed.
+    private static func confirm(_ title: String, _ message: String, button: String,
+                                critical: Bool = false, action: @escaping () -> Void) {
+        let alert = PlatformAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = critical ? .critical : .warning
+        alert.addButton(withTitle: button)
+        alert.addButton(withTitle: "Cancel")
+        alert.present { response in
+            guard response == 0 else { return }
+            DispatchQueue.global(qos: .userInitiated).async(execute: action)
+        }
+    }
+
+    private static func show(_ title: String, _ message: String) {
+        let alert = PlatformAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.present()
+    }
+}
+#endif
+
+#if os(macOS)
 // MARK: - AutoEQ Menu Actions
 struct AutoEQMenuActions {
     static var rebuildWindowController: AutoEQRebuildWindowController?
@@ -11239,7 +11481,9 @@ class AutoEQRebuildWindowController: NSObject {
         window = nil
     }
 }
+#endif
 
+#if os(macOS)
 // MARK: - Quit Interception
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -11811,3 +12055,4 @@ struct DSPi_ConsoleApp: App {
         .menuBarExtraStyle(.menu)
     }
 }
+#endif // os(macOS)

@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Volume Leveller Window Controller
 
+#if os(macOS)
 class VolumeLevellerWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -45,6 +46,13 @@ extension VolumeLevellerWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class VolumeLevellerWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Volume Leveller") { VolumeLevellerView(vm: vm, leveller: vm.leveller).onboardingHint("leveller") }
+    }
+}
+#endif
 
 // MARK: - Volume Leveller View
 

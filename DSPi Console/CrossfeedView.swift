@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Crossfeed Window Controller
 
+#if os(macOS)
 class CrossfeedWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -45,6 +46,13 @@ extension CrossfeedWindowController: NSWindowDelegate {
         isVisible = false
     }
 }
+#else
+class CrossfeedWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Crossfeed") { CrossfeedView(vm: vm, crossfeed: vm.crossfeed).onboardingHint("crossfeed") }
+    }
+}
+#endif
 
 // MARK: - Crossfeed Presets
 

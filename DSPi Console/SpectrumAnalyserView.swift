@@ -1561,6 +1561,7 @@ struct SpectrumBarStrip: View {
 
 // MARK: - Window controller
 
+#if os(macOS)
 class SpectrumAnalyserWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -1630,6 +1631,24 @@ extension SpectrumAnalyserWindowController: NSWindowDelegate {
     func windowDidMiniaturize(_ notification: Notification) { updateRenderingVisibility() }
     func windowDidDeminiaturize(_ notification: Notification) { updateRenderingVisibility() }
 }
+#else
+class SpectrumAnalyserWindowController: IOSToolWindowController {
+    @Published private(set) var isRendering: Bool = false
+
+    func show(vm: DSPViewModel) {
+        present(title: "Spectrum Analyser") {
+            SpectrumAnalyserView(vm: vm, engine: vm.rta).environmentObject(self)
+        }
+        isRendering = true
+    }
+
+    func toggle(vm: DSPViewModel) {
+        isVisible ? hide() : show(vm: vm)
+    }
+
+    override func didHide() { isRendering = false }
+}
+#endif
 
 // MARK: - Analyser window
 

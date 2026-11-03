@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - Window Controller
 
+#if os(macOS)
 class FirmwareUpdateWindowController: NSObject, ObservableObject {
     private var window: NSWindow?
     @Published var isVisible: Bool = false
@@ -56,6 +57,15 @@ extension FirmwareUpdateWindowController: NSWindowDelegate {
         tearDownContent()
     }
 }
+#else
+class FirmwareUpdateWindowController: IOSToolWindowController {
+    func show(vm: DSPViewModel) {
+        present(title: "Firmware Update") {
+            FirmwareUpdateView(vm: vm, onClose: { [weak self] in self?.hide() })
+        }
+    }
+}
+#endif
 
 // MARK: - Update View
 
