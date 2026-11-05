@@ -52,6 +52,7 @@ struct DSPiConsoleIOSApp: App {
     @StateObject private var firmwareUpdateWindowController = FirmwareUpdateWindowController()
     @StateObject private var whatsNewWindowController = WhatsNewWindowController()
     @StateObject private var onboarding = OnboardingCoordinator.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -73,6 +74,13 @@ struct DSPiConsoleIOSApp: App {
                 .environmentObject(autoEQBrowserController)
                 .environmentObject(onboarding)
                 .preferredColorScheme(.dark)
+                .onChange(of: scenePhase) { old, new in
+                    // Back from the background: the USB MIDI device may have
+                    // changed or gone while the app was suspended.
+                    if old == .background && new != .background {
+                        AppState.shared.midiTransport.resume()
+                    }
+                }
         }
     }
 }
