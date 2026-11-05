@@ -21,7 +21,8 @@
 //  * Notifications (tag 0, frame type 0x40) go to `addNotificationObserver`.
 //    A change made over MIDI comes back with source PARAM_SRC_MIDI, which
 //    only this transport can have caused, so it is attributed to `session`
-//    and the view model skips the echo.  A gap in the v2 sequence byte means
+//    and the view model skips the echo; so is the BULK_SET invalidation of
+//    our own bulk write.  A gap in the v2 sequence byte means
 //    the device dropped notifications for us: a synthetic BULK_INVALIDATED
 //    makes the view model re-read everything (the firmware's recovery rule).
 //  * Connecting opens the port and reads REQ_GET_PLATFORM; only an answer
@@ -93,11 +94,16 @@ final class MIDITransport: DeviceTransport {
     private var endpointsBySerial: [String: MIDIControlEndpoint] = [:]
     private var knownSerials: Set<String> = []
     private var openEndpoint: MIDIControlEndpoint?
-    private var nextTag: UInt8 = 0
+    /// Random start, so two hosts on one port (each sees the other's
+    /// replies) are unlikely to use the same tag at the same time.
+    private var nextTag = UInt8.random(in: 0..<0x7E)
     private var inFlight: InFlight?
     private var consecutiveTimeouts = 0
     private var lastNotifySeq: UInt8?
     private var refusedReadOnly: Set<UInt8> = []
+    /// Until when a BULK_INVALIDATED with source BULK_SET is the result of
+    /// our own bulk write (see `notify`).
+    private var ownBulkWriteUntil = Date.distantPast
     private var _stats = Stats()
 
     /// Touched only from the port's receive thread.
@@ -172,8 +178,10 @@ final class MIDITransport: DeviceTransport {
     // MARK: - Devices and connection
 
     private static func device(for endpoint: MIDIControlEndpoint) -> DSPiDevice {
-        DSPiDevice(serial: endpoint.serial, locationID: endpoint.locationID, hub: nil,
-                   remoteName: "DSPi (\(endpoint.serial.suffix(8))) via USB MIDI")
+        let name = endpoint.serial.hasPrefix("RELAY-")
+            ? "DSPi via MIDI relay \(endpoint.serial.dropFirst(6))"
+            : "DSPi (\(endpoint.serial.suffix(8))) via USB MIDI"
+        return DSPiDevice(serial: endpoint.serial, locationID: endpoint.locationID, hub: nil, remoteName: name)
     }
 
     /// Hot-plug: refresh the list, drop a vanished device, open a new one.
@@ -276,6 +284,33 @@ final class MIDITransport: DeviceTransport {
         selectedSubject.send(nil)
     }
 
+    /// The app is back in the foreground.  iOS suspends a background app,
+    /// so nothing was read meanwhile and the device may have dropped
+    /// notifications for us: check that it still answers, then have the view
+    /// model re-read everything (a synthetic BULK_INVALIDATED), or reconnect
+    /// if it does not answer.
+    func resume() {
+        guard let device = selectedDevice else { return }
+        guard isConnected else { reconnect(); return }
+        let generation = self.generation
+        requestQueue.async { [weak self] in
+            guard let self = self else { return }
+            let result = self.transact(type: MIDIControlCodec.typeGet, request: REQ_GET_PLATFORM,
+                                       value: 0, index: 2, length: 7, payload: [])
+            DispatchQueue.main.async {
+                guard self.generation == generation, self.selectedDevice == device else { return }
+                if case .success = result {
+                    self.stateLock.lock(); self.lastNotifySeq = nil; self.stateLock.unlock()
+                    Self.log.notice("Resumed: DSPi still answers, re-reading state")
+                    self.fanout.publish(LinkNotification(packet: Self.syntheticBulkInvalidated, origin: 0, receivedAt: Date()))
+                } else {
+                    Self.log.notice("Resumed: DSPi does not answer, reconnecting")
+                    self.reconnect()
+                }
+            }
+        }
+    }
+
     func markDisconnected() {
         connectedSubject.send(false)
     }
@@ -361,6 +396,15 @@ final class MIDITransport: DeviceTransport {
         let frame = MIDIControlCodec.requestFrame(type: type, request: request, value: value, index: index,
                                                   length: length, payload: payload)
         let timeout = Self.isBulk(request) ? bulkTimeout : requestTimeout
+        let isBulkWrite = type == MIDIControlCodec.typeSet && (request == REQ_SET_ALL_PARAMS || request == 0xA3)
+        if isBulkWrite {
+            stateLock.lock(); ownBulkWriteUntil = .distantFuture; stateLock.unlock()
+        }
+        defer {
+            if isBulkWrite {
+                stateLock.lock(); ownBulkWriteUntil = Date().addingTimeInterval(1); stateLock.unlock()
+            }
+        }
         var attempt = 0
         while true {
             let started = Date()
@@ -505,8 +549,14 @@ final class MIDITransport: DeviceTransport {
         stateLock.unlock()
 
         let data = Data(packet)
-        let note = LinkNotification(packet: data, origin: Self.sourceByte(of: data) == Self.paramSourceMIDI ? session : 0,
-                                    receivedAt: Date())
+        let source = Self.sourceByte(of: data)
+        // The firmware tags a bulk apply BULK_SET whichever transport sent
+        // it; one that lands while our own 0xA1 / 0xA3 is in flight, or just
+        // after, is ours (the bulk lock keeps other hosts' bulk writes out
+        // of that window).
+        stateLock.lock(); let ownBulk = Date() < ownBulkWriteUntil; stateLock.unlock()
+        let ours = source == Self.paramSourceMIDI || (packet[1] == 0x03 && source == Self.paramSourceBulkSet && ownBulk)
+        let note = LinkNotification(packet: data, origin: ours ? session : 0, receivedAt: Date())
         fanout.publish(note)
         if gap {
             Self.log.notice("Notification sequence gap before seq \(seq): re-reading state")
@@ -516,6 +566,8 @@ final class MIDITransport: DeviceTransport {
 
     /// PARAM_SRC_MIDI: changes made through this channel.
     static let paramSourceMIDI: UInt8 = 10
+    /// PARAM_SRC_BULK_SET: a REQ_SET_ALL_PARAMS applied, from any transport.
+    static let paramSourceBulkSet: UInt8 = 2
 
     /// The ParamSource byte where each event puts it (see
     /// LinkNotification.isHostSourced), or nil.
