@@ -46,7 +46,9 @@ class AppState: ObservableObject {
     /// interface, when launched with `-LocalTransport midi` (the transport
     /// the iOS app uses; MIDITransport.swift).  The hub and network sharing
     /// stay on the vendor interface.
-    lazy var midiTransport: MIDITransport = MIDITransport()
+    /// `-MIDIRelay host:port` reaches the DSPi through a relay instead of
+    /// CoreMIDI (MIDIRelayPort.swift; how the iOS Simulator gets to one).
+    lazy var midiTransport: MIDITransport = MIDITransport(port: MIDIRelayPort.fromDefaults() ?? CoreMIDIControlPort())
 
     /// True when `-LocalTransport midi` (UserDefaults `LocalTransport`).
     static var usesMIDITransport: Bool {
@@ -79,7 +81,9 @@ class AppState: ObservableObject {
 
     /// A DSPi on USB: iOS cannot open the vendor interface, so the firmware's
     /// USB MIDI control port carries the commands (MIDITransport.swift).
-    lazy var midiTransport: MIDITransport = MIDITransport()
+    /// `-MIDIRelay host:port` reaches the DSPi through a relay instead of
+    /// CoreMIDI (MIDIRelayPort.swift; how the iOS Simulator gets to one).
+    lazy var midiTransport: MIDITransport = MIDITransport(port: MIDIRelayPort.fromDefaults() ?? CoreMIDIControlPort())
 
     /// The local side of the composite: a DSPi on USB MIDI and the demo
     /// device in one list, the DSPi first.  `-LocalTransport demo` leaves
