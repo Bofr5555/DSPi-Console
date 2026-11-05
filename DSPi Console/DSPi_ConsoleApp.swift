@@ -42,12 +42,24 @@ class AppState: ObservableObject {
     /// The local device, driven as session 1 on the hub.
     lazy var localTransport: HubTransport = HubTransport(hub: linkHub, usb: usb)
 
+    /// The DSPi over its USB MIDI control port instead of the vendor
+    /// interface, when launched with `-LocalTransport midi` (the transport
+    /// the iOS app uses; MIDITransport.swift).  The hub and network sharing
+    /// stay on the vendor interface.
+    lazy var midiTransport: MIDITransport = MIDITransport()
+
+    /// True when `-LocalTransport midi` (UserDefaults `LocalTransport`).
+    static var usesMIDITransport: Bool {
+        UserDefaults.standard.string(forKey: "LocalTransport") == "midi"
+    }
+
     /// The transport the whole UI drives: local USB devices and devices shared
     /// by other hubs on the network in one list, with selection routed to
     /// whichever owns the device.  The view model never learns which.
     lazy var transport: CompositeTransport = {
+        let local: any DeviceTransport = AppState.usesMIDITransport ? midiTransport : localTransport
         let composite = CompositeTransport(
-            local: localTransport,
+            local: local,
             tokens: LinkTokenStore(),
             clientName: Host.current().localizedName ?? "DSPi Console",
             makeClient: { LinkClient() })
@@ -61,21 +73,31 @@ class AppState: ObservableObject {
         LinkClientCoordinator(composite: transport,
                               ownHubID: linkHub.auth.hubID.uuidString.lowercased())
     #else
-    /// iOS has no USB path to a DSPi yet (DriverKit on iPad is A5, MIDI is
-    /// A8), so the local side of the composite is the demo device: a simulated
-    /// DSPi that answers every request from fixture state.  Devices shared by
-    /// DSPi Link hubs on the network join the same list, as on macOS.
+    /// The demo device: a simulated DSPi that answers every request from
+    /// fixture state.
     lazy var demoTransport: FakeTransport = FakeTransport(autoSelect: FakeTransport.autoSelectAtLaunch)
+
+    /// A DSPi on USB: iOS cannot open the vendor interface, so the firmware's
+    /// USB MIDI control port carries the commands (MIDITransport.swift).
+    lazy var midiTransport: MIDITransport = MIDITransport()
+
+    /// The local side of the composite: a DSPi on USB MIDI and the demo
+    /// device in one list, the DSPi first.  `-LocalTransport demo` leaves
+    /// MIDI out.  Devices shared by DSPi Link hubs on the network join the
+    /// same list, as on macOS.
+    lazy var localTransports: LocalTransportSet = UserDefaults.standard.string(forKey: "LocalTransport") == "demo"
+        ? LocalTransportSet([demoTransport])
+        : LocalTransportSet([midiTransport, demoTransport])
 
     /// The local device path, under the name the macOS code uses for it
     /// (`DSPViewModel`'s default transport, the Stats window).
-    var usb: any DeviceTransport { demoTransport }
+    var usb: any DeviceTransport { localTransports }
 
     lazy var transport: CompositeTransport = {
         // No pairing prompt yet: a hub that asks for a PIN cannot be joined
         // from iOS until the prompt is ported (it is an NSAlert on macOS).
         CompositeTransport(
-            local: demoTransport,
+            local: localTransports,
             tokens: LinkTokenStore(),
             clientName: UIDevice.current.name,
             makeClient: { LinkClient() })

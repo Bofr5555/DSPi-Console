@@ -11,8 +11,8 @@
 //    Tools, the flash operations, Settings);
 //  * tool windows as sheets, through `ToolSheetPresenter` (iOSCompat.swift);
 //  * Settings as a sheet holding the shared `SettingsView`;
-//  * a Devices sheet: the demo device, DSPi Link hubs found on the network,
-//    and manual hub entry.
+//  * a Devices sheet: a DSPi on USB (its MIDI control port), the demo device,
+//    DSPi Link hubs found on the network, and manual hub entry.
 //
 //  The compact (iPhone portrait) layout is work package A3; this shell keeps
 //  the macOS two-pane console as is.
@@ -25,6 +25,8 @@
 //                           leveller, siggen, spectrum, stats, interrupts,
 //                           autoeq, graph, settings, devices, whatsnew
 //    -SelectChannel <c>     select a channel page: in1..in8, out1..out9
+//    -LocalTransport demo   leave the USB MIDI transport out (demo only)
+//    -MIDIReadOnly YES      send only pure reads to a DSPi on USB MIDI
 //
 
 #if os(iOS)
@@ -247,8 +249,8 @@ struct IOSSettingsSheet: View {
 
 // MARK: - Devices
 
-/// The connect screen: the demo device, devices on DSPi Link hubs found on the
-/// local network, and hubs added by address.  Selecting a device goes through
+/// The connect screen: a DSPi on USB MIDI, the demo device, devices on DSPi
+/// Link hubs found on the local network, and hubs added by address.  Selecting a device goes through
 /// `DSPViewModel.switchToDevice`, exactly as the Mac's device picker does.
 struct IOSDevicesSheet: View {
     @ObservedObject var vm: DSPViewModel
@@ -265,11 +267,12 @@ struct IOSDevicesSheet: View {
                             vm.switchToDevice(device)
                         } label: {
                             HStack {
-                                Image(systemName: device.isRemote ? "network" : "play.rectangle")
+                                let isDemo = device == FakeTransport.demoDevice
+                                Image(systemName: device.isRemote ? "network" : isDemo ? "play.rectangle" : "cable.connector")
                                     .frame(width: 24)
                                 VStack(alignment: .leading) {
                                     Text(device.displayName)
-                                    Text(device.isRemote ? "DSPi Link" : "Simulated DSPi, RP2350, firmware 1.1.6")
+                                    Text(device.isRemote ? "DSPi Link" : isDemo ? "Simulated DSPi, RP2350, firmware 1.1.6" : "USB, MIDI control port")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -288,7 +291,7 @@ struct IOSDevicesSheet: View {
                 } header: {
                     Text("Devices")
                 } footer: {
-                    Text("A USB connection to a DSPi from iPhone or iPad is not available yet. Use the demo device, or a DSPi shared by DSPi Console on a Mac (Settings > Networking there) or another DSPi Link hub.")
+                    Text("A DSPi on USB appears here when its firmware has the MIDI control port (\"DSPi Control\"). Or use the demo device, or a DSPi shared by DSPi Console on a Mac (Settings > Networking there) or another DSPi Link hub.")
                 }
 
                 Section {
