@@ -55,6 +55,19 @@ final class MIDITransportTests: XCTestCase {
         XCTAssertTrue(spinUntil { midi.isConnected && port.openCount == 2 })
     }
 
+    func testResumeReReadsOrReconnects() {
+        let (midi, port) = connected()
+        var events: [UInt8] = []
+        midi.addNotificationObserver { events.append($0.eventID) }.store(in: &cancellables)
+        midi.resume()
+        XCTAssertTrue(spinUntil { events == [0x03] }, "a live device gets a re-read")
+        XCTAssertEqual(port.openCount, 1)
+        // The device stopped answering while the app was suspended.
+        port.device.droppedReplies = 1
+        midi.resume()
+        XCTAssertTrue(spinUntil(3) { port.openCount == 2 && midi.isConnected }, "a silent device is reopened")
+    }
+
     func testSilentPortNeverConnects() {
         let device = FakeMIDIDevice { _ in nil }
         let port = FakeMIDIControlPort(device: device)
@@ -196,6 +209,27 @@ final class MIDITransportTests: XCTestCase {
         XCTAssertTrue(spinUntil { events.count == 4 })
         XCTAssertEqual(events, [0x02, 0x02, 0x02, 0x03])
         XCTAssertEqual(midi.stats.sequenceGaps, 1)
+    }
+
+    func testOwnBulkWriteInvalidationIsOurs() throws {
+        let device = FakeMIDIDevice()
+        let simple = FakeMIDIDevice.simpleModel()
+        device.respond = { [weak device] r in
+            // The firmware pushes BULK_INVALIDATED (source BULK_SET) as it applies.
+            if r.request == REQ_SET_ALL_PARAMS { device?.notify([0x02, 0x03, 0, 1, 2, 0, 0, 0]) }
+            return simple(r)
+        }
+        let (midi, port) = connected(device)
+        var origins: [LinkSessionID] = []
+        midi.addNotificationObserver { origins.append($0.origin) }.store(in: &cancellables)
+        midi.sendControlRequest(request: REQ_SET_ALL_PARAMS, value: 0, index: 2, data: Data(FakeMIDIDevice.bulkImage))
+        XCTAssertTrue(spinUntil { origins.count == 1 })
+        XCTAssertEqual(origins, [midi.session])
+        // Long after our write, the same packet is someone else's.
+        Thread.sleep(forTimeInterval: 1.2)
+        port.device.notify([0x02, 0x03, 0, 2, 2, 0, 0, 0])
+        XCTAssertTrue(spinUntil { origins.count == 2 })
+        XCTAssertEqual(origins.last, 0)
     }
 
     func testNotificationBetweenRequestAndReplyIsDelivered() throws {
