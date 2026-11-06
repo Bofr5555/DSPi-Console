@@ -115,6 +115,41 @@ final class LinkClientIOSTests: XCTestCase {
         XCTAssertEqual(asked, ["Studio"])
     }
 
+    // MARK: - Typed hub addresses
+
+    /// A typed address learns the hub's name, access mode and devices from
+    /// its info endpoint, so its devices can be listed and picked; an
+    /// unreachable one is asked again.
+    @MainActor
+    func testATypedHubListsItsDevicesFromItsInfo() {
+        var asks = 0
+        let browser = HubBrowser(ownHubID: nil) { url, done in
+            asks += 1
+            guard asks > 1 else { return done(nil) }        // first try: unreachable
+            done(Data(#"""
+                {"hub":{"id":"fdb9","name":"Studio Mac","kind":"console","version":"1.1.6"},
+                 "auth":"pin","devices":[{"serial":"BB66A44F2AC1E7B6","name":"DSPi"}]}
+                """#.utf8))
+        }
+        browser.manualRetryDelay = 0.2
+        browser.addManual("127.0.0.1:11915")
+        XCTAssertTrue(spinUntil(3) { browser.hubs.first?.serials == ["BB66A44F2AC1E7B6"] })
+        let hub = browser.hubs.first
+        XCTAssertEqual(hub?.name, "Studio Mac")
+        XCTAssertEqual(hub?.authMode, "pin")
+        XCTAssertEqual(hub?.kind, "console")
+        XCTAssertEqual(hub?.deviceCount, 1)
+        XCTAssertEqual(hub?.isManual, true)
+        XCTAssertEqual(asks, 2)
+
+        // In the composite the hub's device is listed and can be picked.
+        let composite = CompositeTransport(local: FakeTransport(autoSelect: false),
+                                           tokens: LinkTokenStore(service: "t-\(UUID())"),
+                                           clientName: "T") { LinkClientFake() }
+        composite.updateHubs(browser.hubs)
+        XCTAssertTrue(composite.availableDevices.contains { $0.serial == "BB66A44F2AC1E7B6" && $0.isRemote })
+    }
+
     // MARK: - USB MIDI and DSPi Link in one list
 
     private func hub(_ id: String, serials: [String]) -> DiscoveredHub {

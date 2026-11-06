@@ -82,6 +82,9 @@ final class HubBrowser: ObservableObject {
     private var wantBrowsing = false
     private var restartWork: DispatchWorkItem?
     private var manual: [DiscoveredHub] = []
+    /// How long an unreachable typed address waits before its info is asked
+    /// again.
+    var manualRetryDelay: TimeInterval = 10
     private var browsed: [String: DiscoveredHub] = [:]   // keyed by service name
     private var endpoints: [String: NWEndpoint] = [:]
     /// The attempt in flight per service.  The token tells a late result from
@@ -253,21 +256,46 @@ final class HubBrowser: ObservableObject {
         manual.removeAll { $0.id == hub.id }
         manual.append(hub)
         publish()
-        checkManualIsSelf(hub)
+        resolveManual(hub)
     }
 
-    /// A typed address carries no hub id until something asks.  The info
-    /// endpoint answers without a session, so ask it whether this is us.
-    private func checkManualIsSelf(_ hub: DiscoveredHub) {
-        guard let own = ownHubID, let url = hub.infoURL else { return }
+    /// A typed address carries no hub id, name or device list until something
+    /// asks: the info endpoint (spec 3.2) answers without a session.  Its
+    /// answer marks this Console's own hub, and otherwise fills in the name,
+    /// access mode and device serials, so the hub's devices are listed and can
+    /// be picked as a browsed hub's are.  Unreachable addresses are asked
+    /// again every `manualRetryDelay` while they stay in the list.
+    private func resolveManual(_ hub: DiscoveredHub) {
+        guard let url = hub.infoURL else { return }
         let id = hub.id
         fetchInfo(url) { [weak self] data in
-            struct Info: Decodable { struct Hub: Decodable { let id: String }; let hub: Hub }
-            guard let data = data, let info = try? JSONDecoder().decode(Info.self, from: data),
-                  info.hub.id.lowercased() == own else { return }
+            struct Info: Decodable {
+                struct Hub: Decodable { let id: String; let name: String?; let kind: String? }
+                struct Device: Decodable { let serial: String }
+                let hub: Hub
+                let auth: String?
+                let devices: [Device]?
+            }
+            let info = data.flatMap { try? JSONDecoder().decode(Info.self, from: $0) }
             Task { @MainActor in
                 guard let self = self, let index = self.manual.firstIndex(where: { $0.id == id }) else { return }
-                self.manual[index].isSelf = true
+                guard let info = info else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + self.manualRetryDelay) { [weak self] in
+                        guard let self = self, let hub = self.manual.first(where: { $0.id == id }) else { return }
+                        self.resolveManual(hub)
+                    }
+                    return
+                }
+                if let own = self.ownHubID, info.hub.id.lowercased() == own {
+                    self.manual[index].isSelf = true
+                } else {
+                    let serials = (info.devices ?? []).map(\.serial)
+                    if let name = info.hub.name, !name.isEmpty { self.manual[index].name = name }
+                    if let kind = info.hub.kind { self.manual[index].kind = kind }
+                    if let auth = info.auth { self.manual[index].authMode = auth }
+                    self.manual[index].serials = serials
+                    self.manual[index].deviceCount = serials.count
+                }
                 self.publish()
             }
         }
