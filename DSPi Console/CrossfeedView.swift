@@ -90,12 +90,20 @@ struct CrossfeedView: View {
     /// selector on older firmware, which crossfeeds a fixed set of outputs.
     private var showPairMask: Bool { vm.firmwareSupportsCrossfeedMask }
 
+    /// The extension channel's pair map (bofr firmware fork): each pair's
+    /// outputs are configurable.  Stock firmware keeps pairs 2p / 2p+1.
+    private var showPairMap: Bool { vm.crossfeedPairMapSupported }
+
     /// Mask with every valid pair bit set, for the "All pairs" preset.
     private var allPairsMask: UInt8 { pairCount >= 8 ? 0xFF : UInt8((1 << pairCount) - 1) }
 
     /// Display name for one channel of output pair `p` (left = 0, right = 1).
     /// Falls back to a generic label before channel names are fetched.
     private func pairChannelName(_ p: Int, right: Bool) -> String {
+        if showPairMap {
+            let pair = crossfeed.pairMap.pair(p)
+            return vm.crossfeedOutputName(right ? pair.right : pair.left)
+        }
         let idx = vm.chOut1 + 2 * p + (right ? 1 : 0)
         return idx < vm.channelNames.count ? vm.channelNames[idx] : "Out \(2 * p + (right ? 1 : 0) + 1)"
     }
@@ -123,7 +131,7 @@ struct CrossfeedView: View {
                     parameterSection
                     Divider()
                     itdSection
-                    if showPairMask {
+                    if showPairMask || showPairMap {
                         Divider()
                         outputPairSection
                     }
@@ -347,22 +355,42 @@ struct CrossfeedView: View {
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 6) {
-                ForEach(0..<pairCount, id: \.self) { p in
-                    pairChip(
-                        pair: p,
-                        on: crossfeed.outputMask & (UInt8(1) << p) != 0
-                    ) {
-                        vm.setCrossfeedOutputPair(p, enabled: crossfeed.outputMask & (UInt8(1) << p) == 0)
-                    }
+            if showPairMap {
+                CrossfeedPairMapControls(vm: vm, crossfeed: crossfeed)
+                // One chip per pair, named by the outputs it processes.
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)],
+                          spacing: 6) {
+                    pairChips
+                }
+            } else {
+                HStack(spacing: 6) {
+                    pairChips
                 }
             }
         }
     }
 
+    private var pairChips: some View {
+        ForEach(0..<pairCount, id: \.self) { p in
+            pairChip(
+                pair: p,
+                on: crossfeed.outputMask & (UInt8(1) << p) != 0
+            ) {
+                vm.setCrossfeedOutputPair(p, enabled: crossfeed.outputMask & (UInt8(1) << p) == 0)
+            }
+        }
+    }
+
+    /// "1" on upstream firmware; "1: Out 3 / Out 1" with a pair map.
+    private func pairChipLabel(_ p: Int) -> String {
+        guard showPairMap else { return "\(p + 1)" }
+        let pair = crossfeed.pairMap.pair(p)
+        return "\(p + 1): Out \(pair.left + 1) / Out \(pair.right + 1)"
+    }
+
     private func pairChip(pair p: Int, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text("\(p + 1)")
+            Text(pairChipLabel(p))
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .frame(maxWidth: .infinity, minHeight: 26)
                 .foregroundColor(on ? .white : .primary.opacity(0.6))
