@@ -431,6 +431,7 @@ struct EmulatedWindowWidth: ViewModifier {
 /// switched by `CompactPanes`.
 struct HSplitView<Content: View>: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @ObservedObject private var panes = CompactPanes.shared
     @ViewBuilder let content: () -> Content
 
@@ -439,7 +440,8 @@ struct HSplitView<Content: View>: View {
     }
 
     var body: some View {
-        let single = CompactPanes.wantsSinglePane(width: panes.windowWidth, sizeClass: sizeClass)
+        let single = CompactPanes.wantsSinglePane(width: panes.windowWidth, sizeClass: sizeClass,
+                                                  verticalSizeClass: verticalSizeClass)
         Group {
             if single, #available(iOS 18.0, *) {
                 CompactPaneSwitcher(content: content)
@@ -470,9 +472,14 @@ final class CompactPanes: ObservableObject {
     /// portrait is 744 pt, an 11-inch iPad 834 pt.
     static let minimumTwoPaneWidth: CGFloat = 820
 
-    static func wantsSinglePane(width: CGFloat, sizeClass: UserInterfaceSizeClass?) -> Bool {
+    /// One pane in a compact width, below `minimumTwoPaneWidth`, and in a
+    /// compact height (an iPhone in landscape, even a Pro Max at 956 pt: the
+    /// channel list's bottom panel would cover its rows).
+    static func wantsSinglePane(width: CGFloat, sizeClass: UserInterfaceSizeClass?,
+                                verticalSizeClass: UserInterfaceSizeClass? = nil) -> Bool {
         guard #available(iOS 18.0, *) else { return false }
-        return sizeClass == .compact || (width > 0 && width < minimumTwoPaneWidth)
+        return sizeClass == .compact || verticalSizeClass == .compact
+            || (width > 0 && width < minimumTwoPaneWidth)
     }
 }
 
@@ -563,6 +570,7 @@ extension View {
 }
 
 private struct ConsoleDetailFrame: ViewModifier {
+    static let minimumHeight: CGFloat = 420
     @ObservedObject private var panes = CompactPanes.shared
     @ObservedObject private var vm = AppState.shared.viewModel
 
@@ -570,13 +578,17 @@ private struct ConsoleDetailFrame: ViewModifier {
         if panes.isSinglePane {
             let minimum: CGFloat = vm.activeEqChannel == nil ? 440 : 500
             GeometryReader { proxy in
-                ScrollView(.horizontal) {
+                ScrollView([.horizontal, .vertical]) {
                     // Top-leading, so content that is still larger starts at
-                    // the corner instead of being cut on both sides.
-                    content.frame(width: max(proxy.size.width, minimum), height: proxy.size.height,
+                    // the corner instead of being cut on both sides.  At
+                    // least 420 pt high, which a phone in landscape does not
+                    // have: the channel header and a few filter rows, the
+                    // rest by scrolling.
+                    content.frame(width: max(proxy.size.width, minimum),
+                                  height: max(proxy.size.height, Self.minimumHeight),
                                   alignment: .topLeading)
                 }
-                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                .scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
             }
         } else {
             content
