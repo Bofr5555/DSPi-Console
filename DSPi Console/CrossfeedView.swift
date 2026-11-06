@@ -108,40 +108,72 @@ struct CrossfeedView: View {
         return idx < vm.channelNames.count ? vm.channelNames[idx] : "Out \(2 * p + (right ? 1 : 0) + 1)"
     }
 
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// iPhone (and a narrow iPad window): one column at the sheet's width
+    /// instead of the two-column window, so nothing sits off screen.
+    private var stacksColumns: Bool { sizeClass == .compact }
+    #else
+    private var stacksColumns: Bool { false }
+    #endif
+
     var body: some View {
         VStack(spacing: 0) {
             headerSection
 
             Divider()
 
-            // Two columns of the sections the other tool windows stack. The
-            // graph sits over the presets that set it; the right column holds
-            // the custom parameters, the time delay and where crossfeed applies.
-            HStack(alignment: .top, spacing: 0) {
+            if stacksColumns {
                 VStack(alignment: .leading, spacing: 14) {
-                    crossfeedGraph
+                    leftColumn
                     Divider()
-                    presetSection
+                    rightColumn
                 }
                 .toolColumn()
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 14) {
-                    parameterSection
-                    Divider()
-                    itdSection
-                    if showPairMask || showPairMap {
-                        Divider()
-                        outputPairSection
+                .padding(.vertical, 16)
+            } else {
+                // Two columns of the sections the other tool windows stack. The
+                // graph sits over the presets that set it; the right column holds
+                // the custom parameters, the time delay and where crossfeed applies.
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        leftColumn
                     }
+                    .toolColumn()
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        rightColumn
+                    }
+                    .toolColumn()
                 }
-                .toolColumn()
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 16)
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.vertical, 16)
         }
-        .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(minWidth: stacksColumns ? nil : 620, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        #if os(iOS)
+        .modifier(SheetWidthWhenStacked(active: stacksColumns))
+        #endif
+    }
+
+    @ViewBuilder
+    private var leftColumn: some View {
+        crossfeedGraph
+        Divider()
+        presetSection
+    }
+
+    @ViewBuilder
+    private var rightColumn: some View {
+        parameterSection
+        Divider()
+        itdSection
+        if showPairMask || showPairMap {
+            Divider()
+            outputPairSection
+        }
     }
 
     // MARK: - Header
@@ -409,6 +441,17 @@ struct CrossfeedView: View {
         .animation(.easeInOut(duration: 0.12), value: on)
     }
 }
+
+#if os(iOS)
+/// The tool sheet scrolls both ways, so a stacked view has no width of its
+/// own: pin it to the sheet's visible width so its text wraps.
+private struct SheetWidthWhenStacked: ViewModifier {
+    let active: Bool
+    func body(content: Content) -> some View {
+        if active { content.containerRelativeFrame(.horizontal) } else { content }
+    }
+}
+#endif
 
 // MARK: - Crossfeed Curve Visualization
 
