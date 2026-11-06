@@ -354,6 +354,19 @@ final class MIDITransport: DeviceTransport {
         }
     }
 
+    /// Blocking SET that reports the device's status, in order with every
+    /// other request.  For callers that must know (a DSPi Link hub executing
+    /// a client's command); the console itself uses `sendControlRequest`.
+    func setControlResult(request: UInt8, value: UInt16, index: UInt16, data: Data) -> Result<Void, LinkStatus> {
+        guard permitted(isGet: false, request: request) else { return .failure(.denied) }
+        let payload = [UInt8](data)
+        let result = requestQueue.sync {
+            transact(type: MIDIControlCodec.typeSet, request: request, value: value, index: index,
+                     length: UInt16(truncatingIfNeeded: payload.count), payload: payload)
+        }
+        return result.map { _ in () }
+    }
+
     func getControlResult(request: UInt8, value: UInt16, index: UInt16, length: UInt16) -> Result<Data, LinkStatus> {
         guard permitted(isGet: true, request: request) else { return .failure(.denied) }
         let result = requestQueue.sync {
