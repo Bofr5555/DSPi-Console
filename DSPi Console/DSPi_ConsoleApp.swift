@@ -783,6 +783,10 @@ struct PinOverviewTab: View {
 
     var body: some View {
         Form {
+            // Extension channel (bofr firmware fork) only; absent on stock firmware.
+            if vm.isDeviceConnected && vm.coreVregSupported {
+                CoreVoltageSection(vm: vm)
+            }
             if !vm.isDeviceConnected {
                 disconnectedSection
             } else if assignments.isEmpty {
