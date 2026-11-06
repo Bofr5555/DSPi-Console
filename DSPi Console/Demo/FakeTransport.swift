@@ -144,6 +144,18 @@ final class FakeTransport: DeviceTransport {
         let startSlot = slots[requested] == nil ? 0 : requested
         image = slots[startSlot] ?? captured
         presets = slots
+        // `-DemoPairMap k340` starts with the K340's crossfeed pair map and
+        // both pairs crossfed (screenshots of the pair editor).
+        if extensions, UserDefaults.standard.string(forKey: "DemoPairMap") == "k340" {
+            for i in slots.indices {
+                guard var slot = slots[i] else { continue }
+                CrossfeedPairMap.oneDACPerEar.encode(into: &slot)
+                slot[BULK_CROSSFEED_OFFSET + 3] = CrossfeedPairMap.oneDACPerEarPairMask
+                slots[i] = slot
+            }
+            image = slots[startSlot] ?? image
+            presets = slots
+        }
         presetNames[0] = "Captured"
         presetNames[1] = "Demo EQ"
         activePreset = startSlot

@@ -55,11 +55,22 @@ class AppState: ObservableObject {
         UserDefaults.standard.string(forKey: "LocalTransport") == "midi"
     }
 
+    /// `-LocalTransport demo`: the simulated DSPi (FakeTransport, as in the
+    /// iOS app) instead of USB, for screenshots and device-free UI checks.
+    /// Development only; nothing in the app selects it.
+    static var usesDemoTransport: Bool {
+        UserDefaults.standard.string(forKey: "LocalTransport") == "demo"
+    }
+    lazy var demoTransport: FakeTransport = FakeTransport(autoSelect: true)
+
     /// The transport the whole UI drives: local USB devices and devices shared
     /// by other hubs on the network in one list, with selection routed to
     /// whichever owns the device.  The view model never learns which.
     lazy var transport: CompositeTransport = {
-        let local: any DeviceTransport = AppState.usesMIDITransport ? midiTransport : localTransport
+        let local: any DeviceTransport
+        if AppState.usesMIDITransport { local = midiTransport }
+        else if AppState.usesDemoTransport { local = demoTransport }
+        else { local = localTransport }
         let composite = CompositeTransport(
             local: local,
             tokens: LinkTokenStore(),
@@ -665,6 +676,13 @@ struct SettingsView: View {
         .background(SettingsWindowConfigurator())
         #endif
         .onAppear {
+            // `-SettingsPage <page>` (screenshots, UI tests): open on that page,
+            // past the page list of a collapsed split view.
+            if let raw = UserDefaults.standard.string(forKey: "SettingsPage"),
+               let page = SettingsCategory(rawValue: raw) {
+                selection = page
+                compactColumn = .detail
+            }
             ensureSelectionAvailable()
             if history.isEmpty {
                 history = [selection]

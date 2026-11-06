@@ -24,6 +24,10 @@
 //                           crossfeed, psybass, subharm, tube, upmixer,
 //                           leveller, siggen, spectrum, stats, interrupts,
 //                           autoeq, graph, settings, devices, whatsnew
+//    -SettingsPage <page>   open Settings on that page (SettingsCategory raw
+//                           value, e.g. overview); with -OpenTool settings
+//    -DemoPairMap k340      the demo device starts with the K340 crossfeed
+//                           pair map (one DAC per ear) and both pairs on
 //    -SelectChannel <c>     select a channel page: in1..in8, out1..out9
 //    -LocalTransport demo   leave the USB MIDI transport out (demo only)
 //    -MIDIReadOnly YES      send only pure reads to a DSPi on USB MIDI
