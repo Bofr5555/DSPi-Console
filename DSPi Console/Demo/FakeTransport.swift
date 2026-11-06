@@ -27,6 +27,14 @@
 //    list for the next pass (see `unansweredRequests`).
 //  * Meters move: REQ_GET_STATUS synthesises plausible programme levels on
 //    the active inputs and the enabled, unmuted outputs.
+//  * The extension channel (REQ_EXTENSION 0x00) of the bofr firmware fork,
+//    unless built with `extensions: false` (then 0x00 STALLs, as on stock
+//    firmware): EXT_LIST lists the crossfeed pair map and the core-voltage
+//    status; the pair map lives in the image at bulk offset 44 and a valid
+//    write notifies there, an invalid one is ignored, as on the firmware; the
+//    core-voltage status is a fixed demo story (raised once from the 1.15 V
+//    build default after a failed 1.15 V trial).  Core-voltage writes are
+//    ignored.
 //
 //  Fixtures come from WeebLabs/DSPi-Link `fixtures/device/` at 05949b8 (see
 //  dspi-ios/fixtures/README.md for provenance and checksums).
@@ -92,6 +100,8 @@ final class FakeTransport: DeviceTransport {
     private var unanswered: Set<RequestKey> = []
     private var notifySeq: UInt8 = 0
     private let startTime = Date()
+    /// Answer the extension channel (the bofr firmware fork) or STALL it.
+    let extensionsEnabled: Bool
 
     private struct RequestKey: Hashable, CustomStringConvertible {
         let request: UInt8
@@ -102,8 +112,12 @@ final class FakeTransport: DeviceTransport {
 
     private static let log = Logger(subsystem: "WeebLabs.DSPi-Console", category: "FakeTransport")
 
-    /// - Parameter autoSelect: connect to the demo device straight away.
-    init(autoSelect: Bool = true, bundle: Bundle = .main) {
+    /// - Parameters:
+    ///   - autoSelect: connect to the demo device straight away.
+    ///   - extensions: answer REQ_EXTENSION like the bofr firmware fork;
+    ///     false STALLs it like stock firmware.
+    init(autoSelect: Bool = true, bundle: Bundle = .main, extensions: Bool = true) {
+        extensionsEnabled = extensions
         platformReply = FakeTransport.fixture("platform", bundle: bundle) ?? Data([1, 1, 0x16, 9, 1, 6, 5])
         let captured: Data
         if let bulk = FakeTransport.fixture("bulk_v32", bundle: bundle),
@@ -285,6 +299,14 @@ final class FakeTransport: DeviceTransport {
         case REQ_PRESET_SET_STARTUP where payload.count >= 2:
             startupMode = payload[0]
             defaultSlot = payload[1]
+        case REQ_EXTENSION where extensionsEnabled && value == EXT_CROSSFEED_PAIR_MAP
+                                 && payload.count == CrossfeedPairMap.byteCount:
+            // The firmware ignores an invalid map and stores a valid one
+            // normalized.
+            let map = CrossfeedPairMap(payload)
+            if map.isValid(pairCount: fakePairCount) {
+                changes.append((BULK_CROSSFEED_PAIR_MAP_OFFSET, map.normalized.data))
+            }
         default:
             break
         }
@@ -342,6 +364,8 @@ final class FakeTransport: DeviceTransport {
             reply = echo[RequestKey(request: request, value: value, index: index)] ?? Data([0])
         case REQ_CLEAR_CLIPS:
             reply = Data([0, 0])
+        case REQ_EXTENSION where extensionsEnabled:
+            reply = extensionReply(value)
 
         // Presets and flash.
         case REQ_PRESET_GET_DIR:
@@ -391,6 +415,35 @@ final class FakeTransport: DeviceTransport {
         // A control transfer returns at most wLength bytes.
         if data.count > Int(length) { data = data.prefix(Int(length)) }
         return .success(Data(data))
+    }
+
+    // MARK: - Extension channel
+
+    /// Crossfeed pairs of the image's platform: every output but the PDM sub,
+    /// two per pair (4 on RP2350, 2 on RP2040).
+    private var fakePairCount: Int {
+        min(max((Int(image[3]) - 1) / 2, 1), CrossfeedPairMap.byteCount)
+    }
+
+    /// IN replies of the sub-commands the fork has; nil (STALL) for others.
+    private func extensionReply(_ value: UInt16) -> Data? {
+        switch value {
+        case EXT_LIST:
+            return Data([UInt8(EXT_CROSSFEED_PAIR_MAP & 0xFF), UInt8(EXT_CROSSFEED_PAIR_MAP >> 8),
+                         UInt8(EXT_CORE_VREG & 0xFF), UInt8(EXT_CORE_VREG >> 8)])
+        case EXT_CROSSFEED_PAIR_MAP:
+            return CrossfeedPairMap(bulk: image).data
+        case EXT_CORE_VREG:
+            // Live and stored 1.20 V, raised by the firmware from the 1.15 V
+            // build default after a 1.15 V trial hung 12 min 34 s in.
+            var reply = Data([0x0D, 0x0D, 0x0C, CoreVregStatus.flagAutoRaised, 0, 0, 0, 0x0C])
+            for v in [UInt32(754), UInt32(Date().timeIntervalSince(startTime)) + 3_725] {
+                withUnsafeBytes(of: v.littleEndian) { reply.append(contentsOf: $0) }
+            }
+            return reply
+        default:
+            return nil
+        }
     }
 
     // MARK: - Meters
