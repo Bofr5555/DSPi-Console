@@ -33,6 +33,8 @@
 //                           iPad Slide Over or Split View (screenshots)
 //    -ShowChannels YES      show the channel list in a one-pane window
 //    -SelectBand <n>        select PEQ band n on the graph (with -SelectChannel)
+//    -SelectDevice <serial> connect to that device once it is listed (a DSPi
+//                           on a hub or on USB MIDI)
 //
 
 #if os(iOS)
@@ -244,9 +246,23 @@ struct IOSRootView: View {
         if band >= 1 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { vm.peqSelection.selected = [band - 1] }
         }
+        if let serial = defaults.string(forKey: "SelectDevice") {
+            selectWhenListed(serial: serial, tries: 30)
+        }
         if let tool = defaults.string(forKey: "OpenTool") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { open(tool: tool) }
         }
+    }
+
+    /// `-SelectDevice`: wait (up to `tries` seconds) for the device to be
+    /// listed, then pick it as the Devices sheet would.
+    private func selectWhenListed(serial: String, tries: Int) {
+        if let device = vm.availableDevices.first(where: { $0.serial == serial }) {
+            if vm.selectedDevice != device { vm.switchToDevice(device) }
+            return
+        }
+        guard tries > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { selectWhenListed(serial: serial, tries: tries - 1) }
     }
 
     private func open(tool: String) {
