@@ -59,6 +59,9 @@ struct PresetSnapshot: Equatable {
     let crossfeedFeed: Float
     let crossfeedITD: Bool
     let crossfeedOutputMask: UInt8
+    /// The extension channel's pair map (bofr fork), stored in preset slots;
+    /// stock firmware always reports the default.
+    var crossfeedPairMap: CrossfeedPairMap = .default
     let psybassEnabled: Bool
     let psybassOutputMask: UInt16
     let psybassCutoffHz: Float
@@ -252,6 +255,12 @@ extension PresetSnapshot {
         }
         if old.crossfeedOutputMask != new.crossfeedOutputMask {
             changes.append(.init(category: "Crossfeed", description: "Crossfeed output pairs: \(String(format: "0x%02X", old.crossfeedOutputMask)) → \(String(format: "0x%02X", new.crossfeedOutputMask))"))
+        }
+        for p in 0..<CrossfeedPairMap.byteCount {
+            let (a, b) = (old.crossfeedPairMap.pair(p), new.crossfeedPairMap.pair(p))
+            if a != b {
+                changes.append(.init(category: "Crossfeed", description: "Crossfeed pair \(p + 1) outputs: \(a.left + 1)/\(a.right + 1) → \(b.left + 1)/\(b.right + 1)"))
+            }
         }
 
         // Psychoacoustic Bass

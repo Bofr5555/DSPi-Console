@@ -3037,6 +3037,7 @@ class DSPViewModel: ObservableObject {
             crossfeedFeed: crossfeed.feed,
             crossfeedITD: crossfeed.itd,
             crossfeedOutputMask: crossfeed.outputMask,
+            crossfeedPairMap: crossfeed.pairMap,
             psybassEnabled: psybassEnabled,
             psybassOutputMask: psybass.outputMask,
             psybassCutoffHz: psybass.cutoffHz,

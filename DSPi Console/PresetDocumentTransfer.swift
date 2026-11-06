@@ -54,6 +54,9 @@ extension PresetDocument {
         doc.crossfeed.feedDb = vm.crossfeed.feed
         doc.crossfeed.itd = vm.crossfeed.itd
         doc.crossfeed.outputPairMask = Int(vm.crossfeed.outputMask)
+        if vm.crossfeedPairMapSupported {
+            doc.crossfeed.pairMap = vm.crossfeed.pairMap.bytes.map(Int.init)
+        }
 
         doc.leveller.enabled = vm.levellerEnabled
         doc.leveller.speed = vm.leveller.speed
@@ -591,6 +594,13 @@ enum PresetDocumentApply {
         vm.setCrossfeedITD(doc.crossfeed.itd)
         if vm.firmwareSupportsCrossfeedMask {
             vm.setCrossfeedMask(UInt8(truncatingIfNeeded: doc.crossfeed.outputPairMask))
+        }
+        if let map = doc.crossfeed.pairMap(pairCount: vm.crossfeedPairCount) {
+            if vm.crossfeedPairMapSupported {
+                vm.setCrossfeedPairMap(map)
+            } else if !map.isDefault {
+                report.skip("Crossfeed output pairs (not supported by this firmware)")
+            }
         }
         vm.setCrossfeed(doc.crossfeed.enabled)
 

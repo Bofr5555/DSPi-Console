@@ -170,8 +170,23 @@ struct PresetDocument: Codable {
         var feedDb: Float = 4.5
         var itd = true
         var outputPairMask: Int = Int(CROSSFEED_DEFAULT_OUTPUT_MASK)
+        /// Additive: each pair's outputs, the four bytes of the extension
+        /// channel's EXT_CROSSFEED_PAIR_MAP (bofr fork; the Android app writes
+        /// the same key).  Written only from a device that has the map, so a
+        /// file from a stock device is unchanged; absent means "leave the
+        /// device's map alone".
+        var pairMap: [Int]?
 
         init() {}
+
+        /// The map to apply for `pairMap`: the normalized map when valid for
+        /// `pairCount` pairs, otherwise the default (a file from a wider
+        /// platform, or a hand edit).  nil when the file has no map.
+        func pairMap(pairCount: Int) -> CrossfeedPairMap? {
+            guard let raw = pairMap else { return nil }
+            let map = CrossfeedPairMap(bytes: raw.map { UInt8(clamping: $0) })
+            return raw.count <= CrossfeedPairMap.byteCount ? map.loaded(pairCount: pairCount) : .default
+        }
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -181,6 +196,7 @@ struct PresetDocument: Codable {
             feedDb = c.value(.feedDb, 4.5)
             itd = c.value(.itd, true)
             outputPairMask = c.value(.outputPairMask, Int(CROSSFEED_DEFAULT_OUTPUT_MASK))
+            pairMap = (try? c.decodeIfPresent([Int].self, forKey: .pairMap)) ?? nil
         }
     }
 
