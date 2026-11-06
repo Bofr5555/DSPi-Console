@@ -561,17 +561,28 @@ struct SettingsView: View {
     private var canGoBack: Bool { historyIndex > 0 }
     private var canGoForward: Bool { historyIndex < history.count - 1 }
 
-    /// The sidebar's selection.  iOS lists select through an optional.
+    /// The column a collapsed split view shows (iPhone, narrow iPad windows):
+    /// the page list first, a page after picking it.  No effect on macOS.
+    @State private var compactColumn: NavigationSplitViewColumn = .sidebar
+
+    /// The sidebar's selection.  iOS lists select through an optional; while
+    /// a collapsed split view shows the list, nothing is selected, so picking
+    /// the page you came back from opens it again.
     #if os(macOS)
     private var listSelection: Binding<SettingsCategory> { $selection }
+    private var showsHistoryButtons: Bool { true }
     #else
+    @Environment(\.horizontalSizeClass) private var sizeClass
     private var listSelection: Binding<SettingsCategory?> {
-        Binding(get: { selection }, set: { if let page = $0 { selection = page } })
+        Binding(get: { sizeClass == .compact && compactColumn == .sidebar ? nil : selection },
+                set: { if let page = $0 { selection = page; compactColumn = .detail } })
     }
+    /// A collapsed split view has its own back button.
+    private var showsHistoryButtons: Bool { sizeClass != .compact }
     #endif
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(preferredCompactColumn: $compactColumn) {
             List(selection: listSelection) {
                 ForEach(SettingsCategory.groups, id: \.title) { group in
                     let items = group.items.filter { $0.isAvailable(vm) }
@@ -620,6 +631,7 @@ struct SettingsView: View {
                 // Back/forward + current page name, integrated into the title bar
                 // like macOS System Settings.
                 .toolbar {
+                    if showsHistoryButtons {
                     ToolbarItemGroup(placement: .navigation) {
                         Button(action: goBack) {
                             Image(systemName: "chevron.backward")
@@ -635,6 +647,7 @@ struct SettingsView: View {
 
                         Text(selection.title)
                             .font(.headline)
+                    }
                     }
                 }
         }
