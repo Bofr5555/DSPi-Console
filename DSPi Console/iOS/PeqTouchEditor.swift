@@ -140,10 +140,14 @@ struct PeqTouchEditor: View {
         .contentShape(Rectangle())
         .position(dotPoint(i, in: g))
         .onTapGesture { selection.selected = [i] }
-        .gesture(dotDrag(i, in: g))
+        // Ahead of the tap and of the context menu's long press: a finger
+        // that moves is a drag; one that stays still is a tap or, after a
+        // moment, the band menu.
+        .highPriorityGesture(dotDrag(i, in: g))
         .contextMenu { dotMenu(i) }
         .accessibilityElement()
-        .accessibilityLabel("Band \(i + 1), \(p.type.name), \(PeqValueText.frequency(Double(p.freq)))")
+        .accessibilityLabel("Band \(i + 1), \(p.type.name)")
+        .accessibilityValue("\(PeqValueText.frequency(Double(p.freq))), \(PeqValueText.gain(Double(p.gain))), Q \(PeqValueText.q(Double(p.q)))")
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }
 
@@ -218,6 +222,10 @@ struct PeqTouchEditor: View {
                     .exclusively(before: TapGesture().onEnded { selection.selected = [] })
             )
             .simultaneousGesture(pinch)
+            .accessibilityElement()
+            .accessibilityLabel("Response graph")
+            .accessibilityHint("Double-tap adds a band; pinch changes the selected band's Q")
+            .accessibilityAddTraits(.allowsDirectInteraction)
     }
 
     private var pinch: some Gesture {

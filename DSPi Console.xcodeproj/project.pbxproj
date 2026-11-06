@@ -17,6 +17,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1A1A0000000000000000002B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 665141BD2F0DF37B00093CAF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A1A00000000000000000001;
+			remoteInfo = "DSPi Console iOS";
+		};
 		1A1A0000000000000000001B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 665141BD2F0DF37B00093CAF /* Project object */;
@@ -34,6 +41,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		1A1A00000000000000000022 /* DSPi Console iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "DSPi Console iOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A1A00000000000000000012 /* DSPi Console iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "DSPi Console iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A1A00000000000000000002 /* DSPi Console iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DSPi Console iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		665141C52F0DF37B00093CAF /* DSPi Console.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DSPi Console.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -179,9 +187,21 @@
 			path = "DSPi ConsoleTests";
 			sourceTree = "<group>";
 		};
+		1A1A0000000000000000002C /* DSPi Console iOSUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "DSPi Console iOSUITests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1A1A00000000000000000024 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1A1A00000000000000000014 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -226,6 +246,7 @@
 				66626F292F1487CD009BAE8A /* README.md */,
 				665141C72F0DF37B00093CAF /* DSPi Console */,
 				FACEFACEFACEFACEFACE0003 /* DSPi ConsoleTests */,
+				1A1A0000000000000000002C /* DSPi Console iOSUITests */,
 				665141C62F0DF37B00093CAF /* Products */,
 				66626F352F148868009BAE8A /* Images */,
 				667C67482F350A0100264C32 /* LICENSE */,
@@ -239,6 +260,7 @@
 				FACEFACEFACEFACEFACE0002 /* DSPi ConsoleTests.xctest */,
 				1A1A00000000000000000002 /* DSPi Console iOS.app */,
 				1A1A00000000000000000012 /* DSPi Console iOSTests.xctest */,
+				1A1A00000000000000000022 /* DSPi Console iOSUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -246,6 +268,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1A1A00000000000000000021 /* DSPi Console iOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A1A00000000000000000026 /* Build configuration list for PBXNativeTarget "DSPi Console iOSUITests" */;
+			buildPhases = (
+				1A1A00000000000000000023 /* Sources */,
+				1A1A00000000000000000024 /* Frameworks */,
+				1A1A00000000000000000025 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1A1A0000000000000000002A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1A1A0000000000000000002C /* DSPi Console iOSUITests */,
+			);
+			name = "DSPi Console iOSUITests";
+			packageProductDependencies = (
+			);
+			productName = "DSPi Console iOSUITests";
+			productReference = 1A1A00000000000000000022 /* DSPi Console iOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		1A1A00000000000000000011 /* DSPi Console iOSTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1A1A00000000000000000016 /* Build configuration list for PBXNativeTarget "DSPi Console iOSTests" */;
@@ -363,6 +408,10 @@
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = 1A1A00000000000000000001;
 					};
+					1A1A00000000000000000021 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 1A1A00000000000000000001;
+					};
 					FACEFACEFACEFACEFACE0001 = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = 665141C42F0DF37B00093CAF;
@@ -390,11 +439,19 @@
 				FACEFACEFACEFACEFACE0001 /* DSPi ConsoleTests */,
 				1A1A00000000000000000001 /* DSPi Console iOS */,
 				1A1A00000000000000000011 /* DSPi Console iOSTests */,
+				1A1A00000000000000000021 /* DSPi Console iOSUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1A1A00000000000000000025 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1A1A00000000000000000015 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -427,6 +484,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1A1A00000000000000000023 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1A1A00000000000000000013 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -458,6 +522,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1A1A0000000000000000002A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A1A00000000000000000001 /* DSPi Console iOS */;
+			targetProxy = 1A1A0000000000000000002B /* PBXContainerItemProxy */;
+		};
 		1A1A0000000000000000001A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1A1A00000000000000000001 /* DSPi Console iOS */;
@@ -471,6 +540,46 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1A1A00000000000000000027 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "WeebLabs.DSPi-Console-iOSUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "DSPi Console iOS";
+			};
+			name = Debug;
+		};
+		1A1A00000000000000000028 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "WeebLabs.DSPi-Console-iOSUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "DSPi Console iOS";
+			};
+			name = Release;
+		};
 		1A1A00000000000000000017 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -809,6 +918,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1A1A00000000000000000026 /* Build configuration list for PBXNativeTarget "DSPi Console iOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1A00000000000000000027 /* Debug */,
+				1A1A00000000000000000028 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1A1A00000000000000000016 /* Build configuration list for PBXNativeTarget "DSPi Console iOSTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

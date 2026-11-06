@@ -39,6 +39,16 @@
                ReferencedContainer = "container:DSPi Console.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1A1A00000000000000000021"
+               BuildableName = "DSPi Console iOSUITests.xctest"
+               BlueprintName = "DSPi Console iOSUITests"
+               ReferencedContainer = "container:DSPi Console.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
