@@ -109,6 +109,13 @@ final class MIDITransport: DeviceTransport {
     /// Touched only from the port's receive thread.
     private var assembler = SysExAssembler()
 
+    /// Wakes a waiting request.  The port's receive thread (CoreMIDI's) has
+    /// no QoS class, and a high-QoS caller (the view model's poll queue, the
+    /// main thread) blocked on a semaphore that such a thread signals is a
+    /// priority inversion (Thread Performance Checker); signalling from a
+    /// user-interactive queue is not.
+    private let replyQueue = DispatchQueue(label: "WeebLabs.DSPi-Console.MIDITransport.reply", qos: .userInteractive)
+
     private final class InFlight {
         let tag: UInt8
         let semaphore = DispatchSemaphore(value: 0)
@@ -527,7 +534,7 @@ final class MIDITransport: DeviceTransport {
             inFlight = nil
             pending.reply = frame
             stateLock.unlock()
-            pending.semaphore.signal()
+            replyQueue.async { pending.semaphore.signal() }
         } else {
             _stats.staleReplies += 1
             stateLock.unlock()
