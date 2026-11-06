@@ -96,36 +96,25 @@
 				FirmwarePlatformReplyTests.swift,
 				HardwareIntegrationTests.swift,
 				HardwareTestSupport.swift,
-				HubAddressTests.swift,
-				HubBrowserSelfTests.swift,
 				I2sClockPinModeWireTests.swift,
 				I2sSlaveWireTests.swift,
 				InputPairLinkTests.swift,
 				LimiterWireTests.swift,
-				LinkAuthStoreTests.swift,
-				LinkClientFake.swift,
-				LinkClientInventoryTests.swift,
 				LinkClientTests.swift,
-				LinkDiscoveryTests.swift,
 				LinkFixtureGeneratorTests.swift,
-				LinkFrameTests.swift,
 				LinkHubCoreTests.swift,
 				LinkHubDeviceNameTests.swift,
 				LinkHubIntegrationTests.swift,
 				LinkHubTests.swift,
 				LinkLockUsageTests.swift,
-				LinkMessageTests.swift,
 				LinkNotifyRelayTests.swift,
-				LinkPolicyTests.swift,
 				LinkPollSchedulerTests.swift,
 				LinkRtaArbitrationTests.swift,
 				LinkServerTests.swift,
 				LinkServiceTests.swift,
 				LinkSessionHandlerTests.swift,
 				LinkSnapshotCacheTests.swift,
-				LinkTestSupport.swift,
 				LinkWebBundleTests.swift,
-				NetworkTransportTests.swift,
 				OnboardingCoordinatorTests.swift,
 				PeqGraphEditorTests.swift,
 				PeqGraphSnapshotTests.swift,
@@ -637,7 +626,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "DSPi Console";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_FILE = "DSPi Console iOS/Info.plist";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "DSPi Console discovers DSPi devices shared by DSPi Link hubs on your local network.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "DSPi Console finds DSPi Link hubs on your local network, such as a Mac sharing its DSPi or a DSPi Link bridge, and connects to them so you can control a DSPi that is not plugged into this device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -674,7 +663,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "DSPi Console";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_FILE = "DSPi Console iOS/Info.plist";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "DSPi Console discovers DSPi devices shared by DSPi Link hubs on your local network.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "DSPi Console finds DSPi Link hubs on your local network, such as a Mac sharing its DSPi or a DSPi Link bridge, and connects to them so you can control a DSPi that is not plugged into this device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

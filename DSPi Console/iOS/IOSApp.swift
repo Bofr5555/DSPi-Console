@@ -90,8 +90,16 @@ struct DSPiConsoleIOSApp: App {
                 .onChange(of: scenePhase) { old, new in
                     // Back from the background: the USB MIDI device may have
                     // changed or gone while the app was suspended.
+                    // iOS suspends the app soon after it leaves the screen, so
+                    // a hub's WebSocket is dead or stale by now: dial again,
+                    // and the view model re-reads the device on connect.
                     if old == .background && new != .background {
-                        AppState.shared.midiTransport.resume()
+                        let transport = AppState.shared.transport
+                        if transport.isRemoteActive {
+                            transport.reconnect()
+                        } else {
+                            AppState.shared.midiTransport.resume()
+                        }
                     }
                 }
         }
@@ -141,6 +149,9 @@ struct IOSRootView: View {
         }
         .sheet(isPresented: $showSettings) { IOSSettingsSheet() }
         .sheet(isPresented: $showDevices) { IOSDevicesSheet(vm: vm) }
+        // A hub that asks for a PIN: over the Devices sheet when that is up
+        // (that is where a shared device gets picked), from here otherwise.
+        .linkPairingSheet(active: !showDevices)
         .onAppear(perform: launch)
     }
 
@@ -301,7 +312,9 @@ struct IOSSettingsSheet: View {
 struct IOSDevicesSheet: View {
     @ObservedObject var vm: DSPViewModel
     @ObservedObject private var client = AppState.shared.linkClientCoordinator
+    @ObservedObject private var browser = AppState.shared.linkClientCoordinator.browser
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var manualAddress = ""
 
     var body: some View {
@@ -342,6 +355,21 @@ struct IOSDevicesSheet: View {
 
                 Section {
                     Toggle("Look for hubs on this network", isOn: $client.lookForHubs)
+                    if client.lookForHubs && browser.isLocalNetworkDenied {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Local network access is off", systemImage: "wifi.exclamationmark")
+                                .font(.headline)
+                            Text("DSPi Console needs it to find and reach DSPi Link hubs. Turn on Local Network for DSPi Console in Settings, Privacy & Security, Local Network.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Open Settings") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else if client.lookForHubs, let error = client.browseError {
+                        Text(error).font(.caption).foregroundStyle(.orange)
+                    }
                     ForEach(client.hubs) { hub in
                         HStack {
                             VStack(alignment: .leading) {
@@ -372,6 +400,7 @@ struct IOSDevicesSheet: View {
             }
             .navigationTitle("Devices")
             .navigationBarTitleDisplayMode(.inline)
+            .linkPairingSheet()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

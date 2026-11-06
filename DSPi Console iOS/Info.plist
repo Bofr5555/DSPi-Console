@@ -12,5 +12,12 @@
 	<array>
 		<string>_dspi._tcp</string>
 	</array>
+	<!-- DSPi Link hubs speak plain ws:// on the local network (spec 4); TLS is
+	     optional and no hub has it yet.  Local networking only. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

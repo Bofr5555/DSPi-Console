@@ -98,13 +98,17 @@ class AppState: ObservableObject {
     var usb: any DeviceTransport { localTransports }
 
     lazy var transport: CompositeTransport = {
-        // No pairing prompt yet: a hub that asks for a PIN cannot be joined
-        // from iOS until the prompt is ported (it is an NSAlert on macOS).
-        CompositeTransport(
+        // A hub that asks for a PIN gets a sheet (IOSLinkPairing.swift); the
+        // Mac's NSAlert prompt blocks the main thread, which iOS cannot do.
+        let composite = CompositeTransport(
             local: localTransports,
             tokens: LinkTokenStore(),
             clientName: UIDevice.current.name,
             makeClient: { LinkClient() })
+        composite.asyncPairingPrompt = { hubName, completion in
+            IOSLinkPairing.ask(hubName: hubName, completion: completion)
+        }
+        return composite
     }()
 
     /// Console as a client: browses for DSPi Link hubs and feeds the

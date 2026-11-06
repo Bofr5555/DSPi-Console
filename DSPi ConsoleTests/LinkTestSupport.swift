@@ -2,12 +2,14 @@
 //  LinkTestSupport.swift
 //  DSPi ConsoleTests
 //
-//  A controllable HubDevice shared by the hub-level tests.
+//  A controllable HubDevice shared by the hub-level tests (macOS: the hub is
+//  not in the iOS app), and packet helpers shared by the client tests.
 //
 
 import Foundation
 @testable import DSPi_Console
 
+#if os(macOS)
 final class LinkFakeDevice: HubDevice {
     var info: HubDeviceInfo
     var generation: UInt64 = 0
@@ -37,6 +39,7 @@ final class LinkFakeDevice: HubDevice {
     var executed: [LinkCmdRequest] { lock.lock(); defer { lock.unlock() }; return log }
     var executedCodes: [UInt8] { executed.map { $0.bRequest } }
 }
+#endif
 
 /// A v2 PARAM_CHANGED packet with the given source byte, 4-byte value at
 /// offset 16 (global preamp), for feeding hubs in tests.
