@@ -90,6 +90,8 @@ extension DSPViewModel {
         rta.fetchCaps()
         fetchAdatConfig()
         fetchAdatInputConfig()
+        // Extension channel: one EXT_LIST read per connect (a refresh reuses it).
+        probeExtensions(force: afterConnect)
         guard transport.generation == generation else { return }
 
         // All fetches above have enqueued their main-thread state updates, so
@@ -3759,6 +3761,8 @@ extension DSPViewModel {
         let cfOutputMask = data[BULK_CROSSFEED_OFFSET + 3]
         let cfFreq: Float = data.withUnsafeBytes { $0.load(fromByteOffset: BULK_CROSSFEED_OFFSET + 4, as: Float.self) }
         let cfFeed: Float = data.withUnsafeBytes { $0.load(fromByteOffset: BULK_CROSSFEED_OFFSET + 8, as: Float.self) }
+        // Pair map at offset 12 (extension channel firmware; zero = default on stock).
+        let cfPairMap = CrossfeedPairMap(bulk: data)
 
         // --- Delays (offset 64, float[17]) ---
         var delays = [Int: Float]()
@@ -4032,6 +4036,7 @@ extension DSPViewModel {
             self.crossfeed.freq = cfFreq
             self.crossfeed.feed = cfFeed
             self.crossfeed.outputMask = cfOutputMask
+            if self.crossfeed.pairMap != cfPairMap { self.crossfeed.pairMap = cfPairMap }
 
             self.psybassEnabled = pbEnabled
             self.psybass.outputMask = pbOutputMask

@@ -151,6 +151,9 @@ final class CrossfeedParameters: ObservableObject {
     /// (outputs 2p / 2p+1). Default 0x01 = pair 1 only (outputs 0/1). Filter
     /// settings stay global; the mask only selects which pairs are crossfed.
     @Published var outputMask: UInt8 = CROSSFEED_DEFAULT_OUTPUT_MASK
+    /// Which outputs each pair processes (extension EXT_CROSSFEED_PAIR_MAP,
+    /// bulk offset 44).  Stock firmware reports the default pairing.
+    @Published var pairMap: CrossfeedPairMap = .default
 }
 
 /// Psychoacoustic Bass (V23): one global parameter set applied per output

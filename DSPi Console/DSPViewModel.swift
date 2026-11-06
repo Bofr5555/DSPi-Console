@@ -1384,6 +1384,19 @@ class DSPViewModel: ObservableObject {
     @Published var crossfeedEnabled: Bool = false
     let crossfeed = CrossfeedParameters()
 
+    // Extension channel (REQ_EXTENSION 0x00, bofr firmware fork): what the
+    // device's EXT_LIST read reported, probed once per connect.  Stock
+    // firmware STALLs it and every extension feature stays hidden.  See
+    // ExtensionChannel.swift and ExtensionCommands.swift.
+    @Published var extensionProbe: ExtensionProbeState = .unknown
+    /// Last EXT_CORE_VREG read; nil until read, or without the extension.
+    @Published var coreVregStatus: CoreVregStatus?
+    /// Generation of the transport the probe answered for, so a refresh does
+    /// not probe again and a device switch does.  Guarded by its lock: the
+    /// fetch paths run on more than one queue.
+    let extensionProbeLock = NSLock()
+    var extensionProbeGeneration: UInt64?
+
     // Psychoacoustic Bass (V23): parameters in `psybass`, master switch here.
     @Published var psybassEnabled: Bool = false
     let psybass = PsybassParameters()
@@ -2170,6 +2183,13 @@ class DSPViewModel: ObservableObject {
     /// hidden and the app leaves the mask alone.
     var firmwareSupportsCrossfeedMask: Bool { firmwareWireFormatVersion >= 20 }
 
+    /// The device lists EXT_CROSSFEED_PAIR_MAP: each crossfeed pair's outputs
+    /// can be chosen (bofr fork).  Stock firmware keeps pairs 2p / 2p+1.
+    var crossfeedPairMapSupported: Bool { extensionProbe.extensions.crossfeedPairMap }
+
+    /// The device lists EXT_CORE_VREG: its core-voltage status can be read.
+    var coreVregSupported: Bool { extensionProbe.extensions.coreVreg }
+
     /// Linkwitz Transform PEQ type (FilterType.linkwitzTransform) shipped in
     /// wire format V22, which repurposes each WireBandParams' reserved bytes as
     /// the `qp` sidecar.  Hidden from the PEQ picker until confirmed so we never
@@ -2811,6 +2831,8 @@ class DSPViewModel: ObservableObject {
                         self?.presetOccupied = 0
                         self?.presetNames = Array(repeating: "", count: 10)
                         self?.activePresetSlot = 0
+                        self?.extensionProbe = .unknown
+                        self?.coreVregStatus = nil
                     }
                 }
                 if !connected {
