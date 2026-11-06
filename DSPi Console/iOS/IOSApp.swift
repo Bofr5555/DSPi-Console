@@ -27,6 +27,12 @@
 //    -SelectChannel <c>     select a channel page: in1..in8, out1..out9
 //    -LocalTransport demo   leave the USB MIDI transport out (demo only)
 //    -MIDIReadOnly YES      send only pure reads to a DSPi on USB MIDI
+//    -ForceOrientation landscape|portrait
+//                           rotate the window after launch (screenshots)
+//    -EmulateWidth <points> lay the app out in a window that narrow, as in
+//                           iPad Slide Over or Split View (screenshots)
+//    -ShowChannels YES      show the channel list in a one-pane window
+//    -SelectBand <n>        select PEQ band n on the graph (with -SelectChannel)
 //
 
 #if os(iOS)
@@ -57,6 +63,13 @@ struct DSPiConsoleIOSApp: App {
     var body: some Scene {
         WindowGroup {
             IOSRootView(vm: AppState.shared.viewModel)
+                .modifier(WindowWidthReader())
+                .modifier(EmulatedWindowWidth())
+                // Text styles grow with Dynamic Type up to three steps past
+                // the default.  The console is dense and many shared views
+                // use fixed point sizes, so the accessibility sizes beyond
+                // that would break rows and tables rather than help.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .environmentObject(matrixMixerWindowController)
                 .environmentObject(loudnessWindowController)
                 .environmentObject(crossfeedWindowController)
@@ -107,6 +120,8 @@ struct IOSRootView: View {
     @EnvironmentObject private var whatsNew: WhatsNewWindowController
     @EnvironmentObject private var autoEQ: AutoEQBrowserController
 
+    @ObservedObject private var panes = CompactPanes.shared
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showSettings = false
     @State private var showDevices = false
     @State private var didLaunch = false
@@ -131,6 +146,17 @@ struct IOSRootView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        if panes.isSinglePane {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { panes.showsChannelList.toggle() } label: {
+                    if panes.showsChannelList {
+                        Label("Console", systemImage: "chart.xyaxis.line")
+                    } else {
+                        Label("Channels", systemImage: "sidebar.left")
+                    }
+                }
+            }
+        }
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button { showDevices = true } label: {
                 Label("Devices", systemImage: vm.isDeviceConnected ? "cable.connector" : "cable.connector.slash")
@@ -195,6 +221,18 @@ struct IOSRootView: View {
         _ = AppState.shared.linkClientCoordinator
 
         let defaults = UserDefaults.standard
+        if let orientation = defaults.string(forKey: "ForceOrientation"),
+           let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            let mask: UIInterfaceOrientationMask = orientation == "landscape" ? .landscapeRight : .portrait
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+        }
+        if defaults.bool(forKey: "ShowChannels") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { CompactPanes.shared.showsChannelList = true }
+        }
+        let band = defaults.integer(forKey: "SelectBand")
+        if band >= 1 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { vm.peqSelection.selected = [band - 1] }
+        }
         if let tool = defaults.string(forKey: "OpenTool") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { open(tool: tool) }
         }
@@ -364,10 +402,36 @@ private extension View {
 
 // MARK: - Layout shims
 
+/// `-EmulateWidth <points>`: the app laid out in a window of that width at
+/// the leading edge, with the horizontal size class such a window gets
+/// (compact below 600 pt), the way iPad Slide Over and Split View size it.
+/// Lets screenshots and UI tests cover multitasking widths without driving
+/// the multitasking UI.
+struct EmulatedWindowWidth: ViewModifier {
+    private let width: CGFloat? = UserDefaults.standard.string(forKey: "EmulateWidth")
+        .flatMap(Double.init).map { CGFloat($0) }
+
+    func body(content: Content) -> some View {
+        if let width = width {
+            content
+                .environment(\.horizontalSizeClass, width < 600 ? .compact : .regular)
+                .frame(width: width)
+                .overlay(Rectangle().stroke(Color.gray.opacity(0.6), lineWidth: 1))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            content
+        }
+    }
+}
+
 /// `HSplitView` is AppKit-backed and macOS-only.  On iOS the console's two
-/// panes sit side by side in a plain HStack (no draggable divider); the
-/// compact phone layout replaces this in A3.
+/// panes (channel list; graph and channel page) sit side by side in a wide
+/// window, without a draggable divider.  A narrower one (an iPhone, iPad
+/// Slide Over or Split View, an iPad mini in portrait) shows one at a time,
+/// switched by `CompactPanes`.
 struct HSplitView<Content: View>: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @ObservedObject private var panes = CompactPanes.shared
     @ViewBuilder let content: () -> Content
 
     init(@ViewBuilder content: @escaping () -> Content) {
@@ -375,7 +439,169 @@ struct HSplitView<Content: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) { content() }
+        let single = CompactPanes.wantsSinglePane(width: panes.windowWidth, sizeClass: sizeClass)
+        Group {
+            if single, #available(iOS 18.0, *) {
+                CompactPaneSwitcher(content: content)
+            } else {
+                HStack(spacing: 0) { content() }
+            }
+        }
+        .onAppear { panes.setSinglePane(single) }
+        .onChange(of: single) { _, now in panes.setSinglePane(now) }
+    }
+}
+
+/// Which pane a narrow window shows: the console (graph, dashboard or
+/// channel page) or the channel list.  Selecting a channel shows its page;
+/// the toolbar's Channels button goes back to the list.
+final class CompactPanes: ObservableObject {
+    static let shared = CompactPanes()
+    @Published var showsChannelList = false
+    /// True while the window shows one pane at a time.
+    @Published private(set) var isSinglePane = false
+    /// The window's width, measured at the root (`WindowWidthReader`): a
+    /// GeometryReader inside the console is not re-read when the window
+    /// rotates.
+    @Published var windowWidth: CGFloat = 0
+
+    /// Below this width the 220 pt channel list and a channel page (filter
+    /// table, channel header) do not fit side by side: an iPad mini in
+    /// portrait is 744 pt, an 11-inch iPad 834 pt.
+    static let minimumTwoPaneWidth: CGFloat = 820
+
+    static func wantsSinglePane(width: CGFloat, sizeClass: UserInterfaceSizeClass?) -> Bool {
+        guard #available(iOS 18.0, *) else { return false }
+        return sizeClass == .compact || (width > 0 && width < minimumTwoPaneWidth)
+    }
+}
+
+/// Measures the window's width into `CompactPanes.windowWidth`.
+struct WindowWidthReader: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { CompactPanes.shared.windowWidth = proxy.size.width }
+                    .onChange(of: proxy.size.width) { _, width in CompactPanes.shared.windowWidth = width }
+            }
+        )
+    }
+}
+
+extension CompactPanes {
+
+    func setSinglePane(_ single: Bool) {
+        if isSinglePane != single { isSinglePane = single }
+        if !single && showsChannelList { showsChannelList = false }
+    }
+}
+
+/// The two panes of `HSplitView` one at a time.  Both stay alive (the hidden
+/// one is transparent and inert), so lists keep their scroll position.
+/// iOS 18 for `Group(subviews:)`; iOS 17 keeps the side-by-side layout.
+@available(iOS 18.0, *)
+private struct CompactPaneSwitcher<Content: View>: View {
+    let content: () -> Content
+    @ObservedObject private var panes = CompactPanes.shared
+    @ObservedObject private var vm = AppState.shared.viewModel
+
+    var body: some View {
+        Group(subviews: content()) { subviews in
+            if subviews.count == 2 {
+                ZStack {
+                    subviews[0]
+                        .opacity(panes.showsChannelList ? 1 : 0)
+                        .allowsHitTesting(panes.showsChannelList)
+                    subviews[1]
+                        .opacity(panes.showsChannelList ? 0 : 1)
+                        .allowsHitTesting(!panes.showsChannelList)
+                }
+            } else {
+                HStack(spacing: 0) { subviews }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: panes.showsChannelList)
+        // A tap on a channel row selects it (or goes back to the overview):
+        // show the console pane with that page.
+        .onChange(of: vm.activeEqChannel) { _, _ in panes.showsChannelList = false }
+    }
+}
+
+extension View {
+    /// The sidebar pane's width (macOS: ContentView.swift): 220 to 260 pt
+    /// beside the console, the full width when it is the only pane.
+    @ViewBuilder
+    func sidebarPaneFrame() -> some View {
+        modifier(SidebarPaneFrame())
+    }
+}
+
+extension View {
+    /// The response graph's height (macOS: ContentView.swift): the user's
+    /// setting, capped at 140 pt in a short window (an iPhone in landscape),
+    /// so the channel page below keeps some room.
+    func consoleGraphFrame(height: CGFloat) -> some View {
+        modifier(ConsoleGraphFrame(height: height))
+    }
+
+    /// The console column (macOS: ContentView.swift, minimum height 500 pt).
+    func consoleColumnFrame() -> some View {
+        frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+extension View {
+    /// The channel page or dashboard below the graph (macOS: ContentView
+    /// .swift, unchanged).  Their tables have fixed columns (a channel's
+    /// page is about 500 pt, a stereo dashboard card about 440 pt),
+    /// wider than an iPhone, so in a one-pane window they keep that width and
+    /// scroll sideways; the graph above stays the screen's width.
+    func consoleDetailFrame() -> some View {
+        modifier(ConsoleDetailFrame())
+    }
+}
+
+private struct ConsoleDetailFrame: ViewModifier {
+    @ObservedObject private var panes = CompactPanes.shared
+    @ObservedObject private var vm = AppState.shared.viewModel
+
+    func body(content: Content) -> some View {
+        if panes.isSinglePane {
+            let minimum: CGFloat = vm.activeEqChannel == nil ? 440 : 500
+            GeometryReader { proxy in
+                ScrollView(.horizontal) {
+                    // Top-leading, so content that is still larger starts at
+                    // the corner instead of being cut on both sides.
+                    content.frame(width: max(proxy.size.width, minimum), height: proxy.size.height,
+                                  alignment: .topLeading)
+                }
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+private struct ConsoleGraphFrame: ViewModifier {
+    let height: CGFloat
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    func body(content: Content) -> some View {
+        content.frame(height: verticalSizeClass == .compact ? min(height, 140) : height)
+    }
+}
+
+private struct SidebarPaneFrame: ViewModifier {
+    @ObservedObject private var panes = CompactPanes.shared
+
+    func body(content: Content) -> some View {
+        if panes.isSinglePane {
+            content.frame(maxWidth: .infinity)
+        } else {
+            content.frame(minWidth: 220, maxWidth: 260)
+        }
     }
 }
 

@@ -876,7 +876,7 @@ struct ContentView: View {
                     .background(.ultraThinMaterial)
                 }
             }
-            .frame(minWidth: 220, maxWidth: 260)
+            .sidebarPaneFrame()
             // ADDED GESTURE FOR THE REST OF THE SIDEBAR
             .onTapGesture {
                 if renamingChannel != nil { commitRename() }
@@ -926,7 +926,7 @@ struct ContentView: View {
 
                     if !graphWindowController.isVisible {
                         BodePlotView(vm: vm)
-                            .frame(height: CGFloat(settings.graphHeight))
+                            .consoleGraphFrame(height: CGFloat(settings.graphHeight))
                             .padding(.horizontal)
                             .onboardingAnchor("basics.graph")
                             .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
@@ -1010,13 +1010,14 @@ struct ContentView: View {
                 // enlarging the graph above it shrinks this (scrollable) region
                 // rather than growing the column.
                 .frame(maxHeight: .infinity)
+                .consoleDetailFrame()
             }
             // `idealHeight` pins the column's *reported* height to a constant,
             // so dragging the graph resize handle (which changes graphHeight)
             // no longer inflates the window - the extra graph height is taken
             // from the detail area above.  The sidebar (the other split pane)
             // is unaffected.  Still resizable between minHeight and maxHeight.
-            .frame(maxWidth: .infinity, minHeight: 500, idealHeight: 620, maxHeight: .infinity, alignment: .top)
+            .consoleColumnFrame()
             .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
             .onTapGesture {
                 if renamingChannel != nil { commitRename() }
@@ -1507,3 +1508,26 @@ private struct PresetContextMenuItems: View, Equatable {
         }
     }
 }
+
+#if os(macOS)
+// Frames that iOS sizes by size class instead (IOSApp.swift).
+private extension View {
+    /// The sidebar pane's width.  iOS: the full width when a compact window
+    /// shows one pane at a time.
+    func sidebarPaneFrame() -> some View { frame(minWidth: 220, maxWidth: 260) }
+
+    /// The response graph's height.  iOS: capped in a short window (a phone
+    /// in landscape).
+    func consoleGraphFrame(height: CGFloat) -> some View { frame(height: height) }
+
+    /// The channel page or dashboard below the graph.  iOS: scrolls sideways
+    /// on a screen narrower than its tables.
+    func consoleDetailFrame() -> some View { self }
+
+    /// The console column.  iOS: no minimum height, which a phone in
+    /// landscape does not have.
+    func consoleColumnFrame() -> some View {
+        frame(maxWidth: .infinity, minHeight: 500, idealHeight: 620, maxHeight: .infinity, alignment: .top)
+    }
+}
+#endif
