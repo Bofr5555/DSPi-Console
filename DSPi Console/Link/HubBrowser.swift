@@ -65,6 +65,10 @@ final class HubBrowser: ObservableObject {
     /// Why browsing is not delivering results, when the system says: a denied
     /// Local Network permission leaves the browser waiting for good.
     @Published private(set) var browseError: String?
+    /// True while the system refuses this app local network access (the user
+    /// said no to the prompt, or turned it off in Settings).  Browsing waits
+    /// and recovers by itself once access is given.
+    @Published private(set) var isLocalNetworkDenied = false
 
     /// Resolves a Bonjour service endpoint to the host and port to dial.  nil
     /// means the attempt failed and the browser will retry.  The returned
@@ -149,12 +153,15 @@ final class HubBrowser: ObservableObject {
         case .ready:
             isBrowsing = true
             browseError = nil
+            isLocalNetworkDenied = false
         case .waiting(let error):
             isBrowsing = false
             browseError = Self.describe(error)
+            isLocalNetworkDenied = Self.isPolicyDenied(error)
         case .failed(let error):
             isBrowsing = false
             browseError = Self.describe(error)
+            isLocalNetworkDenied = Self.isPolicyDenied(error)
             browser?.cancel()
             browser = nil
             scheduleBrowserRestart()
@@ -176,9 +183,19 @@ final class HubBrowser: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + browserRestartDelay, execute: work)
     }
 
-    private static func describe(_ error: NWError) -> String {
-        if case .dns(let code) = error, code == DNSServiceErrorType(kDNSServiceErr_PolicyDenied) {
+    /// The error NWBrowser reports while local network access is denied.
+    static func isPolicyDenied(_ error: NWError) -> Bool {
+        if case .dns(let code) = error, code == DNSServiceErrorType(kDNSServiceErr_PolicyDenied) { return true }
+        return false
+    }
+
+    static func describe(_ error: NWError) -> String {
+        if isPolicyDenied(error) {
+            #if os(macOS)
             return "Local network access is not allowed for Console. Allow it in System Settings, Privacy & Security, Local Network."
+            #else
+            return "Local network access is not allowed for DSPi Console. Allow it in Settings, Privacy & Security, Local Network."
+            #endif
         }
         return "Could not look for hubs: \(error.localizedDescription)"
     }

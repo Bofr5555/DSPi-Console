@@ -26,6 +26,8 @@ final class CompositeTransport: DeviceTransport {
     /// Asks the user for a hub's pairing code.  nil means pairing cannot be
     /// offered (headless), and connecting to a pin hub without a token fails.
     var pairingPrompt: ((String) -> String?)?
+    /// The non-blocking variant (see `NetworkTransport.asyncPairingPrompt`).
+    var asyncPairingPrompt: ((String, @escaping (String?) -> Void) -> Void)?
     /// Called on the main thread with a hub id when its connection fails, so
     /// the browser can look the hub's address up again.
     var hubUnreachable: ((String) -> Void)?
@@ -133,6 +135,7 @@ final class CompositeTransport: DeviceTransport {
         let transport = NetworkTransport(client: makeClient(), hubID: hub.id, hubName: hub.name,
                                          tokens: tokens, clientName: clientName)
         transport.pairingPrompt = pairingPrompt
+        transport.asyncPairingPrompt = asyncPairingPrompt
         let hubID = hub.id
         transport.onConnectionFailed = { [weak self] in self?.remoteFailed(hubID) }
         stateLock.lock(); remotes[hub.id] = transport; stateLock.unlock()

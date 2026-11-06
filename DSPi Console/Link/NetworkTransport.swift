@@ -53,6 +53,11 @@ final class NetworkTransport: DeviceTransport {
     /// Called on the main thread when the hub needs a PIN.  Returns the PIN
     /// or nil to give up.  The app installs a modal prompt.
     var pairingPrompt: ((String) -> String?)?
+    /// The same question without blocking: called on the main thread with the
+    /// hub's name and a completion that takes the PIN, or nil to give up, on
+    /// the main thread.  Used instead of `pairingPrompt` when set, for a sheet
+    /// that cannot run a modal loop (iOS).
+    var asyncPairingPrompt: ((String, @escaping (String?) -> Void) -> Void)?
     /// True while the prompt is up.  The modal spins the run loop, so a
     /// reconnect can ask for a PIN again underneath it; that ask waits.
     private var pairingPromptShowing = false
@@ -201,6 +206,17 @@ final class NetworkTransport: DeviceTransport {
     }
 
     private func pair() {
+        if let ask = asyncPairingPrompt {
+            guard !pairingPromptShowing else { return }
+            pairingPromptShowing = true
+            ask(hubName) { [weak self] pin in
+                self?.onMain {
+                    self?.pairingPromptShowing = false
+                    self?.pairingAnswered(pin)
+                }
+            }
+            return
+        }
         guard let prompt = pairingPrompt else {
             errorSubject.send("This hub needs pairing.")
             return
@@ -209,6 +225,11 @@ final class NetworkTransport: DeviceTransport {
         pairingPromptShowing = true
         let pin = prompt(hubName)
         pairingPromptShowing = false
+        pairingAnswered(pin)
+    }
+
+    /// What the user typed, or nil for Cancel.
+    private func pairingAnswered(_ pin: String?) {
         guard let pin = pin else {
             wantConnection = false
             reconnectWork?.cancel()
